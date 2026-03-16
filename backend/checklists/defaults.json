@@ -1,0 +1,59 @@
+{
+  "Reconnaissance": [
+    {"label": "OSINT — search engine dorking", "description": "Use Google/Bing dorks to find exposed information"},
+    {"label": "WHOIS lookup", "description": "Gather domain registration information"},
+    {"label": "DNS enumeration", "description": "Enumerate DNS records (A, MX, NS, TXT, CNAME)"},
+    {"label": "Subdomain enumeration", "description": "Discover subdomains using tools like amass, subfinder"},
+    {"label": "Email harvesting", "description": "Collect email addresses from public sources"},
+    {"label": "Technology fingerprinting", "description": "Identify web technologies, frameworks, servers"},
+    {"label": "Certificate transparency search", "description": "Search crt.sh for related certificates"},
+    {"label": "GitHub / code repository search", "description": "Look for leaked credentials or internal code"},
+    {"label": "Social media / LinkedIn research", "description": "Identify employees, roles, and tech stack hints"},
+    {"label": "Shodan / Censys search", "description": "Search for exposed services and banners"}
+  ],
+  "Scanning and Enumeration": [
+    {"label": "Host discovery / ping sweep", "description": "Identify live hosts in scope"},
+    {"label": "Full TCP port scan", "description": "Scan all 65535 TCP ports on targets"},
+    {"label": "UDP port scan (top ports)", "description": "Scan common UDP ports"},
+    {"label": "Service version detection", "description": "Identify service versions on open ports"},
+    {"label": "Web directory brute-forcing", "description": "Discover hidden directories and files"},
+    {"label": "Virtual host enumeration", "description": "Discover additional virtual hosts"},
+    {"label": "SMB enumeration", "description": "Enumerate shares, users, and policies"},
+    {"label": "SNMP enumeration", "description": "Extract system info via SNMP if available"},
+    {"label": "Default credential check", "description": "Test for default credentials on all services"},
+    {"label": "Vulnerability scanning", "description": "Run automated scanners (nuclei, nikto)"},
+    {"label": "Import scan results", "description": "Import nmap XML and other tool outputs"}
+  ],
+  "Exploitation": [
+    {"label": "Exploit known CVEs", "description": "Search and attempt exploits for identified vulnerabilities"},
+    {"label": "SQL injection testing", "description": "Test input fields for SQL injection"},
+    {"label": "Authentication brute-force", "description": "Attempt credential brute-forcing where permitted"},
+    {"label": "File upload testing", "description": "Test file upload functionality for web shell upload"},
+    {"label": "XSS testing", "description": "Test for reflected, stored, and DOM-based XSS"},
+    {"label": "SSRF testing", "description": "Test for server-side request forgery"},
+    {"label": "Command injection testing", "description": "Test input fields for OS command injection"},
+    {"label": "LFI/RFI testing", "description": "Test for local and remote file inclusion"},
+    {"label": "Password hash cracking", "description": "Crack any captured password hashes"},
+    {"label": "Network service exploitation", "description": "Exploit vulnerable network services"}
+  ],
+  "Post-Exploitation": [
+    {"label": "Privilege escalation", "description": "Attempt to escalate to root/SYSTEM/admin"},
+    {"label": "Credential harvesting", "description": "Extract stored credentials from compromised systems"},
+    {"label": "Lateral movement", "description": "Pivot to other systems using obtained credentials"},
+    {"label": "Internal network discovery", "description": "Map internal networks from compromised hosts"},
+    {"label": "Active Directory enumeration", "description": "Run BloodHound, enumerate AD if applicable"},
+    {"label": "Data access demonstration", "description": "Document access to sensitive data (do not exfiltrate)"},
+    {"label": "Persistence documentation", "description": "Document potential persistence mechanisms"},
+    {"label": "Evidence collection", "description": "Capture screenshots and proof of all access"}
+  ],
+  "Reporting": [
+    {"label": "Complete all finding entries", "description": "Ensure all findings have title, description, impact, remediation"},
+    {"label": "Attach evidence to findings", "description": "Link screenshots and tool output to each finding"},
+    {"label": "Assign CVSS scores", "description": "Rate each finding with an appropriate CVSS score"},
+    {"label": "Verify scope documentation", "description": "Ensure scope is accurately documented"},
+    {"label": "Write executive summary", "description": "Summarize key findings for non-technical audience"},
+    {"label": "Proofread report", "description": "Review for typos, accuracy, and completeness"},
+    {"label": "Generate and export report", "description": "Generate the final report from this tool"},
+    {"label": "Client debrief preparation", "description": "Prepare presentation materials for client meeting"}
+  ]
+}

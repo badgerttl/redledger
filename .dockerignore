@@ -1,0 +1,12 @@
+data/
+frontend/node_modules/
+frontend/dist/
+__pycache__/
+*.pyc
+.git/
+.gitignore
+.dockerignore
+README.md
+*.md
+!backend/**/*.md
+!backend/templates/*.md
