@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { ChevronDown, ChevronRight, Copy, Check, Compass } from 'lucide-react';
-import PORT_RECOMMENDATIONS, { SERVICE_ALIASES, GENERIC_RECOMMENDATION } from '../data/portRecommendations';
+import PORT_RECOMMENDATIONS, { SERVICE_ALIASES, GENERIC_RECOMMENDATION } from '../data/portRecommendations.js';
 
 function parsePortsSummary(raw) {
   if (!raw || !raw.trim()) return [];
