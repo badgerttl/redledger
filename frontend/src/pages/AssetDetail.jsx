@@ -4,8 +4,9 @@ import api from '../api/client';
 import toast from 'react-hot-toast';
 import MarkdownViewer from '../components/MarkdownViewer';
 import TagBadge from '../components/TagBadge';
-import FileUpload from '../components/FileUpload';
-import { ArrowLeft, Plus, Trash2, Image, StickyNote, Pencil, Check, X, Tag } from 'lucide-react';
+import AttachmentGallery from '../components/AttachmentGallery';
+import { ArrowLeft, Plus, Trash2, StickyNote, Pencil, Check, X, Tag } from 'lucide-react';
+import ReconRecommendations from '../components/ReconRecommendations';
 
 const DEFAULT_TAG_COLORS = ['#6366f1', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
 
@@ -118,7 +119,7 @@ export default function AssetDetail() {
     } catch { toast.error('Failed to delete'); }
   };
 
-  const uploadScreenshot = async (files) => {
+  const uploadFile = async (files) => {
     const file = files[0];
     if (!file) return;
     const formData = new FormData();
@@ -127,11 +128,11 @@ export default function AssetDetail() {
     try {
       await api.post(`/assets/${assetId}/screenshots`, formData);
       load();
-      toast.success('Screenshot uploaded');
+      toast.success('File uploaded');
     } catch { toast.error('Upload failed'); }
   };
 
-  const deleteScreenshot = async (scId) => {
+  const deleteFile = async (scId) => {
     try {
       await api.delete(`/screenshots/${scId}`);
       load();
@@ -287,6 +288,10 @@ export default function AssetDetail() {
         </div>
       </div>
 
+      {asset.asset_type === 'host' && (
+        <ReconRecommendations portsSummary={asset.ports_summary} target={asset.target} />
+      )}
+
       <div className="grid grid-cols-2 gap-6">
         {/* Notes */}
         <div>
@@ -337,35 +342,13 @@ export default function AssetDetail() {
           </div>
         </div>
 
-        {/* Screenshots */}
+        {/* Attachments */}
         <div>
-          <h2 className="text-base font-medium mb-3 flex items-center gap-2"><Image className="w-4 h-4" /> Screenshots</h2>
-          <FileUpload
-            onDrop={uploadScreenshot}
-            accept={{ 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'] }}
-            label="Drop screenshot here or click to upload"
+          <AttachmentGallery
+            attachments={screenshots}
+            onUpload={uploadFile}
+            onDelete={deleteFile}
           />
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            {screenshots.map((s) => (
-              <div key={s.id} className="card p-2 group relative">
-                <img
-                  src={`/api/screenshots/${s.id}/file`}
-                  alt={s.caption || s.filename}
-                  className="w-full rounded object-cover max-h-48"
-                />
-                <div className="mt-1.5 flex items-center justify-between">
-                  <span className="text-2xs text-text-muted truncate">{s.filename}</span>
-                  <button
-                    onClick={() => deleteScreenshot(s.id)}
-                    className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100"
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-          {screenshots.length === 0 && <p className="text-sm text-text-muted mt-3">No screenshots yet</p>}
         </div>
       </div>
     </div>

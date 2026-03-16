@@ -5,8 +5,8 @@ import toast from 'react-hot-toast';
 import SeverityBadge from '../components/SeverityBadge';
 import StatusBadge from '../components/StatusBadge';
 import MarkdownViewer from '../components/MarkdownViewer';
-import FileUpload from '../components/FileUpload';
-import { ArrowLeft, Trash2, Image, Edit2, Save } from 'lucide-react';
+import AttachmentGallery from '../components/AttachmentGallery';
+import { ArrowLeft, Trash2, Edit2, Save } from 'lucide-react';
 
 const SEVERITIES = ['Critical', 'High', 'Medium', 'Low', 'Info'];
 const STATUSES = ['draft', 'confirmed', 'reported', 'remediated'];
@@ -58,7 +58,7 @@ export default function FindingDetail() {
     } catch { toast.error('Failed to update'); }
   };
 
-  const uploadScreenshot = async (files) => {
+  const uploadFile = async (files) => {
     const file = files[0];
     if (!file) return;
     const formData = new FormData();
@@ -71,7 +71,7 @@ export default function FindingDetail() {
     } catch { toast.error('Upload failed'); }
   };
 
-  const deleteScreenshot = async (scId) => {
+  const deleteFile = async (scId) => {
     try {
       await api.delete(`/screenshots/${scId}`);
       load();
@@ -177,27 +177,14 @@ export default function FindingDetail() {
         </div>
       )}
 
-      {/* Evidence Screenshots */}
+      {/* Evidence */}
       <div className="mt-6">
-        <h2 className="text-base font-medium mb-3 flex items-center gap-2"><Image className="w-4 h-4" /> Evidence</h2>
-        <FileUpload
-          onDrop={uploadScreenshot}
-          accept={{ 'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp'] }}
-          label="Drop evidence screenshot here or click to upload"
+        <AttachmentGallery
+          attachments={screenshots}
+          onUpload={uploadFile}
+          onDelete={deleteFile}
+          title="Evidence"
         />
-        <div className="grid grid-cols-3 gap-3 mt-4">
-          {screenshots.map((s) => (
-            <div key={s.id} className="card p-2 group relative">
-              <img src={`/api/screenshots/${s.id}/file`} alt={s.caption || s.filename} className="w-full rounded object-cover max-h-48" />
-              <div className="mt-1.5 flex items-center justify-between">
-                <span className="text-2xs text-text-muted truncate">{s.filename}</span>
-                <button onClick={() => deleteScreenshot(s.id)} className="text-text-muted hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100">
-                  <Trash2 className="w-3 h-3" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
       </div>
     </div>
   );
