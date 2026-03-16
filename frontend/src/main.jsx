@@ -12,6 +12,11 @@ if (savedTheme === 'light') {
   document.documentElement.classList.add('dark');
 }
 
+const savedColorTheme = localStorage.getItem('colorTheme');
+if (savedColorTheme && savedColorTheme !== 'crimson') {
+  document.documentElement.classList.add(`theme-${savedColorTheme}`);
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <BrowserRouter>

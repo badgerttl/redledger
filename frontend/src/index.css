@@ -4,22 +4,29 @@
 
 @layer base {
   :root {
-    --color-body: #f2efef;
-    --color-card: #faf8f8;
-    --color-sidebar: #f0eded;
-    --color-border: #e0d8d8;
-    --color-input: #f0ecec;
+    --color-accent: 220 38 38;
+    --color-accent-hover: 239 68 68;
+    --color-body: #e4dfdf;
+    --color-card: #ffffff;
+    --color-sidebar: #1e1818;
+    --color-border: #d0c8c8;
+    --color-input: #f5f2f2;
     --color-text-primary: #18181b;
     --color-text-secondary: #52525b;
     --color-text-muted: #a1a1aa;
-    --color-row-alt: #f5f2f2;
+    --color-row-alt: #f8f5f5;
     --color-hover-tint: rgba(0, 0, 0, 0.04);
-    --scrollbar-track: #f2efef;
-    --scrollbar-thumb: #d8d0d0;
+    --color-sidebar-text: #e4e4e7;
+    --color-sidebar-text-muted: #a1a1aa;
+    --color-sidebar-border: #2d2525;
+    --scrollbar-track: #e4dfdf;
+    --scrollbar-thumb: #c8c0c0;
     --scrollbar-thumb-hover: #a89e9e;
   }
 
   .dark {
+    --color-accent: 220 38 38;
+    --color-accent-hover: 239 68 68;
     --color-body: #0c0a0a;
     --color-card: #151212;
     --color-sidebar: #1e1818;
@@ -30,6 +37,9 @@
     --color-text-muted: #71717a;
     --color-row-alt: #131010;
     --color-hover-tint: rgba(255, 255, 255, 0.03);
+    --color-sidebar-text: #e4e4e7;
+    --color-sidebar-text-muted: #71717a;
+    --color-sidebar-border: #2d2525;
     --scrollbar-track: #0c0a0a;
     --scrollbar-thumb: #2d2525;
     --scrollbar-thumb-hover: #3d3333;
@@ -57,6 +67,67 @@
   ::-webkit-scrollbar-thumb:hover {
     background: var(--scrollbar-thumb-hover);
   }
+}
+
+/* Theme color overrides — placed outside @layer so Tailwind's
+   tree-shaking does not strip them (these classes are applied at
+   runtime via JS and never appear in template content files). */
+
+.theme-blue {
+  --color-accent: 14 165 233;
+  --color-accent-hover: 56 189 248;
+  --color-sidebar: #151a24;
+  --color-sidebar-border: #222d3d;
+}
+.dark.theme-blue {
+  --color-body: #080a0f;
+  --color-card: #0f1218;
+  --color-sidebar: #151a24;
+  --color-border: #222d3d;
+  --color-input: #101520;
+  --color-row-alt: #0c0f16;
+  --color-sidebar-border: #222d3d;
+  --scrollbar-track: #080a0f;
+  --scrollbar-thumb: #222d3d;
+  --scrollbar-thumb-hover: #324050;
+}
+
+.theme-green {
+  --color-accent: 16 185 129;
+  --color-accent-hover: 52 211 153;
+  --color-sidebar: #141f1a;
+  --color-sidebar-border: #1e3028;
+}
+.dark.theme-green {
+  --color-body: #080c0a;
+  --color-card: #0f1612;
+  --color-sidebar: #141f1a;
+  --color-border: #1e3028;
+  --color-input: #0f1912;
+  --color-row-alt: #0b100d;
+  --color-sidebar-border: #1e3028;
+  --scrollbar-track: #080c0a;
+  --scrollbar-thumb: #1e3028;
+  --scrollbar-thumb-hover: #2e4038;
+}
+
+.theme-slate {
+  --color-accent: 100 116 139;
+  --color-accent-hover: 148 163 184;
+  --color-sidebar: #1a1a1e;
+  --color-sidebar-border: #28282d;
+}
+.dark.theme-slate {
+  --color-body: #0a0a0c;
+  --color-card: #121214;
+  --color-sidebar: #1a1a1e;
+  --color-border: #28282d;
+  --color-input: #151517;
+  --color-row-alt: #0e0e11;
+  --color-sidebar-border: #28282d;
+  --scrollbar-track: #0a0a0c;
+  --scrollbar-thumb: #28282d;
+  --scrollbar-thumb-hover: #38383d;
 }
 
 @layer components {
