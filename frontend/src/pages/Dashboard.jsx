@@ -190,18 +190,27 @@ export default function Dashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="card text-center">
+        <button
+          onClick={() => navigate(`/e/${id}/assets`)}
+          className="card text-center hover:border-accent/30 transition-colors cursor-pointer"
+        >
           <div className="text-2xl font-semibold text-accent">{stats?.assets ?? '—'}</div>
           <div className="text-xs text-text-muted mt-1">Assets</div>
-        </div>
-        <div className="card text-center">
+        </button>
+        <button
+          onClick={() => navigate(`/e/${id}/findings`)}
+          className="card text-center hover:border-accent/30 transition-colors cursor-pointer"
+        >
           <div className="text-2xl font-semibold text-sev-high">{stats?.findings ?? '—'}</div>
           <div className="text-xs text-text-muted mt-1">Findings</div>
-        </div>
-        <div className="card text-center">
+        </button>
+        <button
+          onClick={() => navigate(`/e/${id}/credentials`)}
+          className="card text-center hover:border-accent/30 transition-colors cursor-pointer"
+        >
           <div className="text-2xl font-semibold text-sev-medium">{stats?.credentials ?? '—'}</div>
           <div className="text-xs text-text-muted mt-1">Credentials</div>
-        </div>
+        </button>
       </div>
 
       {/* Info panels */}

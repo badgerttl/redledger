@@ -5,7 +5,7 @@ import toast from 'react-hot-toast';
 import MarkdownViewer from '../components/MarkdownViewer';
 import TagBadge from '../components/TagBadge';
 import AttachmentGallery from '../components/AttachmentGallery';
-import { ArrowLeft, Plus, Trash2, StickyNote, Pencil, Check, X, Tag } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, StickyNote, Pencil, Check, X, Tag, Copy } from 'lucide-react';
 import ReconRecommendations from '../components/ReconRecommendations';
 
 const DEFAULT_TAG_COLORS = ['#6366f1', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
@@ -139,6 +139,14 @@ export default function AssetDetail() {
     } catch { toast.error('Failed to delete'); }
   };
 
+  const copyTarget = async () => {
+    if (!asset?.target) return;
+    try {
+      await navigator.clipboard.writeText(asset.target);
+      toast.success('Copied to clipboard');
+    } catch { toast.error('Failed to copy'); }
+  };
+
   if (!asset) return <div className="text-text-muted">Loading...</div>;
 
   const renderEditableField = (field, label, mono = false) => {
@@ -187,7 +195,18 @@ export default function AssetDetail() {
 
       <div className="page-header">
         <div>
-          <h1 className="page-title">{asset.name}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="page-title">{asset.name}</h1>
+            {asset.target && (
+              <button
+                onClick={copyTarget}
+                className="text-text-muted hover:text-accent transition-colors p-1 rounded hover:bg-accent/10"
+                title={`Copy ${asset.asset_type === 'host' ? 'IP address' : 'URL'}`}
+              >
+                <Copy className="w-4 h-4" />
+              </button>
+            )}
+          </div>
           <p className="text-sm text-text-muted mt-0.5">{asset.asset_type === 'host' ? 'Host' : 'Web Page'} · {asset.target}</p>
         </div>
       </div>

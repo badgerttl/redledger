@@ -6,7 +6,7 @@ import SeverityBadge from '../components/SeverityBadge';
 import StatusBadge from '../components/StatusBadge';
 import TagBadge from '../components/TagBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, X, FileText, Paperclip } from 'lucide-react';
 
 const SEVERITIES = ['', 'Critical', 'High', 'Medium', 'Low', 'Info'];
 const STATUSES = ['', 'draft', 'confirmed', 'reported', 'remediated'];
@@ -21,6 +21,7 @@ export default function Findings() {
   const [filterSeverity, setFilterSeverity] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [queuedFiles, setQueuedFiles] = useState([]);
 
   const load = async () => {
     try {
@@ -39,9 +40,16 @@ export default function Findings() {
     const payload = { ...form, cvss_score: form.cvss_score ? parseFloat(form.cvss_score) : null };
     try {
       const { data } = await api.post(`/engagements/${id}/findings`, payload);
+      for (const file of queuedFiles) {
+        const fd = new FormData();
+        fd.append('file', file);
+        fd.append('caption', '');
+        await api.post(`/findings/${data.id}/screenshots`, fd);
+      }
       toast.success('Finding created');
       setShowCreate(false);
       setForm({ title: '', severity: 'Info', status: 'draft', phase: '', description: '', impact: '', remediation: '', cvss_score: '', cvss_vector: '' });
+      setQueuedFiles([]);
       navigate(`/e/${id}/findings/${data.id}`);
     } catch { toast.error('Failed to create finding'); }
   };
@@ -97,9 +105,45 @@ export default function Findings() {
             <div><label className="label">Impact</label><textarea className="textarea" value={form.impact} onChange={(e) => setForm({ ...form, impact: e.target.value })} /></div>
             <div><label className="label">Remediation</label><textarea className="textarea" value={form.remediation} onChange={(e) => setForm({ ...form, remediation: e.target.value })} /></div>
           </div>
+          <div className="mb-4">
+            <label className="label flex items-center gap-2">
+              <Paperclip className="w-3.5 h-3.5" /> Attachments
+              <button
+                type="button"
+                onClick={() => document.getElementById('finding-file-input').click()}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-2xs text-accent hover:bg-accent/10 transition-colors ml-1"
+              >
+                <Plus className="w-3 h-3" /> Add
+              </button>
+              <input
+                id="finding-file-input"
+                type="file"
+                className="hidden"
+                onChange={(e) => {
+                  const files = Array.from(e.target.files);
+                  if (files.length) setQueuedFiles(prev => [...prev, ...files]);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+            {queuedFiles.length > 0 && (
+              <div className="space-y-1 mt-2">
+                {queuedFiles.map((f, idx) => (
+                  <div key={idx} className="flex items-center gap-2 bg-input rounded px-2.5 py-1.5">
+                    <FileText className="w-3.5 h-3.5 text-text-muted shrink-0" />
+                    <span className="text-xs text-text-secondary truncate flex-1">{f.name}</span>
+                    <span className="text-2xs text-text-muted">{(f.size / 1024).toFixed(0)} KB</span>
+                    <button onClick={() => setQueuedFiles(prev => prev.filter((_, i) => i !== idx))} className="text-text-muted hover:text-red-400 transition-colors shrink-0">
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="flex gap-3">
             <button onClick={handleCreate} className="btn-primary">Create</button>
-            <button onClick={() => setShowCreate(false)} className="btn-secondary">Cancel</button>
+            <button onClick={() => { setShowCreate(false); setQueuedFiles([]); }} className="btn-secondary">Cancel</button>
           </div>
         </div>
       )}
