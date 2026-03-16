@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import toast from 'react-hot-toast';
 import MarkdownViewer from '../components/MarkdownViewer';
+import MarkdownEditor from '../components/MarkdownEditor';
 import TagBadge from '../components/TagBadge';
 import AttachmentGallery from '../components/AttachmentGallery';
 import { ArrowLeft, Plus, Trash2, StickyNote, Pencil, Check, X, Tag, Copy } from 'lucide-react';
@@ -18,6 +19,7 @@ export default function AssetDetail() {
   const [screenshots, setScreenshots] = useState([]);
   const [newNote, setNewNote] = useState('');
   const [editingNote, setEditingNote] = useState(null);
+  const [editingNoteBody, setEditingNoteBody] = useState('');
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [allTags, setAllTags] = useState([]);
@@ -316,13 +318,14 @@ export default function AssetDetail() {
         <div>
           <h2 className="text-base font-medium mb-3 flex items-center gap-2"><StickyNote className="w-4 h-4" /> Notes</h2>
           <div className="mb-4">
-            <textarea
-              className="textarea mb-2"
-              placeholder="Write a note (markdown supported)..."
+            <label className="label block mb-1">New note (Markdown)</label>
+            <MarkdownEditor
               value={newNote}
-              onChange={(e) => setNewNote(e.target.value)}
+              onChange={setNewNote}
+              placeholder="Write a note (markdown supported)..."
+              minHeight="140px"
             />
-            <button onClick={addNote} className="btn-primary text-sm flex items-center gap-2">
+            <button onClick={addNote} className="btn-primary text-sm flex items-center gap-2 mt-2">
               <Plus className="w-3.5 h-3.5" /> Add Note
             </button>
           </div>
@@ -331,14 +334,15 @@ export default function AssetDetail() {
               <div key={n.id} className="card">
                 {editingNote === n.id ? (
                   <div>
-                    <textarea
-                      className="textarea mb-2"
-                      defaultValue={n.body}
+                    <MarkdownEditor
+                      value={editingNoteBody}
+                      onChange={setEditingNoteBody}
+                      minHeight="120px"
                       id={`note-edit-${n.id}`}
                     />
-                    <div className="flex gap-2">
-                      <button onClick={() => updateNote(n.id, document.getElementById(`note-edit-${n.id}`).value)} className="btn-primary text-xs">Save</button>
-                      <button onClick={() => setEditingNote(null)} className="btn-secondary text-xs">Cancel</button>
+                    <div className="flex gap-2 mt-2">
+                      <button onClick={() => updateNote(n.id, editingNoteBody)} className="btn-primary text-xs">Save</button>
+                      <button onClick={() => { setEditingNote(null); setEditingNoteBody(''); }} className="btn-secondary text-xs">Cancel</button>
                     </div>
                   </div>
                 ) : (
@@ -347,7 +351,7 @@ export default function AssetDetail() {
                     <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
                       <span className="text-2xs text-text-muted">{new Date(n.created_at).toLocaleString()}</span>
                       <div className="flex gap-2">
-                        <button onClick={() => setEditingNote(n.id)} className="btn-ghost text-xs">Edit</button>
+                        <button onClick={() => { setEditingNote(n.id); setEditingNoteBody(n.body); }} className="btn-ghost text-xs">Edit</button>
                         <button onClick={() => deleteNote(n.id)} className="text-text-muted hover:text-red-400 transition-colors">
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>

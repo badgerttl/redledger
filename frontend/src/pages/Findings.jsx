@@ -6,6 +6,7 @@ import SeverityBadge from '../components/SeverityBadge';
 import StatusBadge from '../components/StatusBadge';
 import TagBadge from '../components/TagBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
+import MarkdownEditor from '../components/MarkdownEditor';
 import { Plus, Trash2, X, FileText, Paperclip } from 'lucide-react';
 
 const SEVERITIES = ['', 'Critical', 'High', 'Medium', 'Low', 'Info'];
@@ -100,10 +101,19 @@ export default function Findings() {
               <div><label className="label">CVSS Vector</label><input className="input" placeholder="CVSS:3.1/AV:N/..." value={form.cvss_vector} onChange={(e) => setForm({ ...form, cvss_vector: e.target.value })} /></div>
             </div>
           </div>
-          <div className="mb-4"><label className="label">Description</label><textarea className="textarea" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+          <div className="mb-4">
+            <label className="label block mb-1">Description (Markdown)</label>
+            <MarkdownEditor value={form.description} onChange={(v) => setForm({ ...form, description: v })} minHeight="120px" />
+          </div>
           <div className="grid grid-cols-2 gap-4 mb-4">
-            <div><label className="label">Impact</label><textarea className="textarea" value={form.impact} onChange={(e) => setForm({ ...form, impact: e.target.value })} /></div>
-            <div><label className="label">Remediation</label><textarea className="textarea" value={form.remediation} onChange={(e) => setForm({ ...form, remediation: e.target.value })} /></div>
+            <div>
+              <label className="label block mb-1">Impact</label>
+              <MarkdownEditor value={form.impact} onChange={(v) => setForm({ ...form, impact: v })} minHeight="100px" />
+            </div>
+            <div>
+              <label className="label block mb-1">Remediation</label>
+              <MarkdownEditor value={form.remediation} onChange={(v) => setForm({ ...form, remediation: v })} minHeight="100px" />
+            </div>
           </div>
           <div className="mb-4">
             <label className="label flex items-center gap-2">

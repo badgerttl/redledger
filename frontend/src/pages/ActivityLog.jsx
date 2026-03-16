@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import api from '../api/client';
 import toast from 'react-hot-toast';
 import { Plus, Clock } from 'lucide-react';
+import { isStructuredContent, formatStructuredContent } from '../utils/formatContent';
 
 const PHASES = ['', 'Reconnaissance', 'Scanning and Enumeration', 'Exploitation', 'Post-Exploitation', 'Reporting'];
 
@@ -93,7 +94,17 @@ export default function ActivityLog() {
                 <div>
                   <p className="text-sm text-text-primary">{log.action}</p>
                   {log.target && <p className="text-xs text-text-muted mt-0.5">Target: {log.target}</p>}
-                  {log.notes && <p className="text-xs text-text-secondary mt-1">{log.notes}</p>}
+                  {log.notes && (
+                  <div className="text-xs text-text-secondary mt-1">
+                    {isStructuredContent(log.notes) ? (
+                      <pre className="bg-input p-3 rounded text-xs font-mono whitespace-pre-wrap overflow-x-auto mt-1">
+                        {formatStructuredContent(log.notes)}
+                      </pre>
+                    ) : (
+                      <p>{log.notes}</p>
+                    )}
+                  </div>
+                )}
                 </div>
                 <div className="text-right shrink-0 ml-4">
                   {log.phase && <span className="text-2xs px-2 py-0.5 rounded bg-accent/10 text-accent">{log.phase}</span>}

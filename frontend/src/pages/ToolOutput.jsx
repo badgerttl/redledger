@@ -6,6 +6,8 @@ import TagBadge from '../components/TagBadge';
 import FileUpload from '../components/FileUpload';
 import { Plus, Trash2, Upload, ChevronDown, ChevronUp } from 'lucide-react';
 
+import { formatStructuredContent } from '../utils/formatContent';
+
 const PHASES = ['', 'Reconnaissance', 'Scanning and Enumeration', 'Exploitation', 'Post-Exploitation', 'Reporting'];
 
 export default function ToolOutput() {
@@ -138,7 +140,7 @@ export default function ToolOutput() {
             </div>
             {expandedId === o.id && (
               <div className="mt-3 pt-3 border-t border-border">
-                <pre className="bg-input p-4 rounded-lg overflow-x-auto text-xs font-mono text-text-secondary max-h-96 overflow-y-auto whitespace-pre-wrap">{o.content}</pre>
+                <pre className="bg-input p-4 rounded-lg overflow-x-auto text-xs font-mono text-text-secondary max-h-96 overflow-y-auto whitespace-pre-wrap">{formatStructuredContent(o.content)}</pre>
                 <div className="flex justify-end mt-3">
                   <button onClick={() => handleDelete(o.id)} className="btn-danger text-xs flex items-center gap-1">
                     <Trash2 className="w-3.5 h-3.5" /> Delete
