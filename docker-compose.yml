@@ -1,3 +1,5 @@
+# To remove images when stopping: docker compose down --rmi all
+# (--rmi local removes only images without a custom tag)
 services:
   redledger:
     build: .

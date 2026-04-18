@@ -34,7 +34,7 @@ Discover live hosts, open ports, running services, and their versions. Map the a
 
 | Service | Tools / Commands |
 |---------|-----------------|
-| SMB (445) | `smbclient -L`, `enum4linux`, `crackmapexec smb` |
+| SMB (445) | `smbclient -L`, `enum4linux`, `nxc smb` |
 | FTP (21) | `ftp anonymous@target`, `nmap --script ftp-anon` |
 | SSH (22) | Banner grab, `ssh-audit` |
 | SNMP (161) | `snmpwalk`, `onesixtyone` |

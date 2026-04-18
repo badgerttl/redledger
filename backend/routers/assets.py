@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import Asset, Engagement, Tag, asset_tag
+from backend.models import Asset, Engagement, Tag
 
 router = APIRouter(tags=["assets"])
 
