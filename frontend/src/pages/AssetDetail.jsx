@@ -6,7 +6,7 @@ import MarkdownViewer from '../components/MarkdownViewer';
 import MarkdownEditor from '../components/MarkdownEditor';
 import TagBadge from '../components/TagBadge';
 import AttachmentGallery from '../components/AttachmentGallery';
-import { ArrowLeft, Plus, Trash2, StickyNote, Pencil, Check, X, Tag, Copy } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, StickyNote, Pencil, Check, X, Copy } from 'lucide-react';
 import ReconRecommendations from '../components/ReconRecommendations';
 
 const DEFAULT_TAG_COLORS = ['#6366f1', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];

@@ -19,8 +19,8 @@ export default function App() {
     <EngagementProvider>
       <div className="flex h-screen overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto p-6">
-          <div className="max-w-[1200px] mx-auto">
+        <main className="flex-1 overflow-y-auto p-6 lg:p-8 app-main">
+          <div className="max-w-[1200px] mx-auto w-full">
             <Routes>
               <Route path="/" element={<Dashboard key="list" />} />
               <Route path="/e/:id" element={<Dashboard key="detail" />} />

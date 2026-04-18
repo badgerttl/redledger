@@ -354,7 +354,7 @@ const PORT_RECOMMENDATIONS = {
         title: 'Enumerate SMB shares',
         commands: [
           'smbclient -L //{target} -N',
-          'crackmapexec smb {target} --shares',
+          'nxc smb {target} --shares',
           'nmap -p 445 --script=smb-enum-shares {target}',
         ],
       },
@@ -369,9 +369,9 @@ const PORT_RECOMMENDATIONS = {
       {
         title: 'Enumerate users, groups, and password policy',
         commands: [
-          'crackmapexec smb {target} --users',
-          'crackmapexec smb {target} --groups',
-          'crackmapexec smb {target} --pass-pol',
+          'nxc smb {target} --users',
+          'nxc smb {target} --groups',
+          'nxc smb {target} --pass-pol',
           'enum4linux -U -G -P {target}',
         ],
       },
@@ -379,16 +379,16 @@ const PORT_RECOMMENDATIONS = {
         title: 'Check for known SMB vulnerabilities (EternalBlue, etc.)',
         commands: [
           'nmap -p 445 --script=smb-vuln-* {target}',
-          'crackmapexec smb {target} -M ms17-010',
+          'nxc smb {target} -M ms17-010',
         ],
       },
       {
         title: 'Brute-force SMB credentials',
-        commands: ['crackmapexec smb {target} -u users.txt -p passwords.txt'],
+        commands: ['nxc smb {target} -u users.txt -p passwords.txt'],
       },
       {
         title: 'Spider readable shares for sensitive files',
-        commands: ['crackmapexec smb {target} -u user -p pass --spider C$ --pattern ".(txt|xml|config|ini|cfg|bak|ps1|bat)$"'],
+        commands: ['nxc smb {target} -u user -p pass --spider C$ --pattern ".(txt|xml|config|ini|cfg|bak|ps1|bat)$"'],
       },
       {
         title: 'Enumerate with NetExec (nxc)',
@@ -418,12 +418,12 @@ const PORT_RECOMMENDATIONS = {
         title: 'Brute-force MSSQL credentials',
         commands: [
           'hydra -L users.txt -P passwords.txt mssql://{target}',
-          'crackmapexec mssql {target} -u users.txt -p passwords.txt',
+          'nxc mssql {target} -u users.txt -p passwords.txt',
         ],
       },
       {
         title: 'Check for xp_cmdshell and code execution',
-        commands: ['crackmapexec mssql {target} -u user -p pass -x "whoami"'],
+        commands: ['nxc mssql {target} -u user -p pass -x "whoami"'],
       },
       {
         title: 'Enumerate databases and tables',
@@ -515,11 +515,11 @@ const PORT_RECOMMENDATIONS = {
     items: [
       {
         title: 'Test WinRM authentication',
-        commands: ['evil-winrm -i {target} -u user -p pass', 'crackmapexec winrm {target} -u user -p pass'],
+        commands: ['evil-winrm -i {target} -u user -p pass', 'nxc winrm {target} -u user -p pass'],
       },
       {
         title: 'Brute-force WinRM credentials',
-        commands: ['crackmapexec winrm {target} -u users.txt -p passwords.txt'],
+        commands: ['nxc winrm {target} -u users.txt -p passwords.txt'],
       },
       {
         title: 'Execute commands via WinRM',
@@ -537,7 +537,7 @@ const PORT_RECOMMENDATIONS = {
     items: [
       {
         title: 'Test WinRM over HTTPS',
-        commands: ['evil-winrm -i {target} -u user -p pass -S', 'crackmapexec winrm {target} -u user -p pass --ssl'],
+        commands: ['evil-winrm -i {target} -u user -p pass -S', 'nxc winrm {target} -u user -p pass --ssl'],
       },
     ],
   },

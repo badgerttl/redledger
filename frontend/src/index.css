@@ -6,43 +6,65 @@
   :root {
     --color-accent: 220 38 38;
     --color-accent-hover: 239 68 68;
-    --color-body: #e4dfdf;
+    --color-body: #f4f4f5;
     --color-card: #ffffff;
-    --color-sidebar: #1e1818;
-    --color-border: #d0c8c8;
-    --color-input: #f5f2f2;
-    --color-text-primary: #18181b;
+    --color-sidebar: #18181b;
+    --color-border: #e4e4e7;
+    --color-input: #fafafa;
+    --color-text-primary: #09090b;
     --color-text-secondary: #52525b;
     --color-text-muted: #a1a1aa;
-    --color-row-alt: #f8f5f5;
+    --color-row-alt: #fafafa;
     --color-hover-tint: rgba(0, 0, 0, 0.04);
-    --color-sidebar-text: #e4e4e7;
+    --color-sidebar-text: #f4f4f5;
     --color-sidebar-text-muted: #a1a1aa;
-    --color-sidebar-border: #2d2525;
-    --scrollbar-track: #e4dfdf;
-    --scrollbar-thumb: #c8c0c0;
-    --scrollbar-thumb-hover: #a89e9e;
+    --color-sidebar-border: #27272a;
+    --scrollbar-track: #f4f4f5;
+    --scrollbar-thumb: #d4d4d8;
+    --scrollbar-thumb-hover: #a1a1aa;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 4px 16px rgb(0 0 0 / 0.06);
+    --shadow-card-hover: 0 8px 30px rgb(0 0 0 / 0.08);
+    --shadow-sidebar: 4px 0 32px -12px rgb(0 0 0 / 0.12);
   }
 
   .dark {
     --color-accent: 220 38 38;
-    --color-accent-hover: 239 68 68;
-    --color-body: #0c0a0a;
-    --color-card: #151212;
-    --color-sidebar: #1e1818;
-    --color-border: #2d2525;
-    --color-input: #1a1515;
-    --color-text-primary: #e4e4e7;
+    --color-accent-hover: 248 113 113;
+    --color-body: #09090b;
+    --color-card: #141416;
+    --color-sidebar: #0f0f12;
+    --color-border: #27272a;
+    --color-input: #18181b;
+    --color-text-primary: #fafafa;
     --color-text-secondary: #a1a1aa;
     --color-text-muted: #71717a;
-    --color-row-alt: #131010;
-    --color-hover-tint: rgba(255, 255, 255, 0.03);
-    --color-sidebar-text: #e4e4e7;
+    --color-row-alt: #0f1014;
+    --color-hover-tint: rgba(255, 255, 255, 0.05);
+    --color-sidebar-text: #f4f4f5;
     --color-sidebar-text-muted: #71717a;
-    --color-sidebar-border: #2d2525;
-    --scrollbar-track: #0c0a0a;
-    --scrollbar-thumb: #2d2525;
-    --scrollbar-thumb-hover: #3d3333;
+    --color-sidebar-border: #27272a;
+    --scrollbar-track: #09090b;
+    --scrollbar-thumb: #3f3f46;
+    --scrollbar-thumb-hover: #52525b;
+    --shadow-card: 0 1px 0 rgb(255 255 255 / 0.04) inset, 0 4px 24px -10px rgb(0 0 0 / 0.55);
+    --shadow-card-hover: 0 1px 0 rgb(255 255 255 / 0.05) inset, 0 12px 40px -12px rgb(0 0 0 / 0.65);
+    --shadow-sidebar: 6px 0 40px -16px rgb(0 0 0 / 0.65);
+  }
+
+  .app-main {
+    background-image: radial-gradient(
+      120% 70% at 50% -15%,
+      rgb(var(--color-accent) / 0.09),
+      transparent 52%
+    );
+  }
+
+  .dark .app-main {
+    background-image: radial-gradient(
+      100% 55% at 50% 0%,
+      rgb(var(--color-accent) / 0.12),
+      transparent 50%
+    );
   }
 
   * {
@@ -132,19 +154,24 @@
 
 @layer components {
   .btn-primary {
-    @apply bg-accent hover:bg-accent-hover text-white px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150;
+    @apply bg-accent hover:bg-accent-hover text-white px-4 py-2.5 rounded-xl text-sm font-semibold tracking-tight shadow-sm transition-all duration-200;
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.12) inset, 0 1px 2px rgb(0 0 0 / 0.18);
+  }
+
+  .btn-primary:hover {
+    box-shadow: 0 1px 0 rgb(255 255 255 / 0.16) inset, 0 4px 14px rgb(var(--color-accent) / 0.35);
   }
 
   .btn-secondary {
-    @apply border border-border text-text-secondary hover:text-text-primary hover:border-text-muted px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150;
+    @apply border border-border bg-card text-text-secondary hover:text-text-primary hover:bg-input px-4 py-2.5 rounded-xl text-sm font-semibold tracking-tight transition-all duration-200;
   }
 
   .btn-danger {
-    @apply bg-rose-700/20 text-rose-400 hover:bg-rose-700/30 border border-rose-700/30 px-4 py-2 rounded-md text-sm font-medium transition-colors duration-150;
+    @apply bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25 border border-rose-500/25 px-4 py-2.5 rounded-xl text-sm font-semibold tracking-tight transition-all duration-200;
   }
 
   .btn-ghost {
-    @apply text-text-secondary hover:text-text-primary px-3 py-1.5 rounded-md text-sm transition-colors duration-150;
+    @apply text-text-secondary hover:text-text-primary px-3 py-1.5 rounded-lg text-sm font-medium transition-colors duration-150;
   }
 
   .btn-ghost:hover {
@@ -152,15 +179,23 @@
   }
 
   .card {
-    @apply bg-card border border-border rounded-lg p-5;
+    @apply bg-card border border-border rounded-2xl p-5 shadow-card transition-[box-shadow,border-color] duration-200;
+  }
+
+  .card.cursor-pointer:hover,
+  a.card:hover,
+  button.card:hover,
+  [role='button'].card:hover {
+    box-shadow: var(--shadow-card-hover);
+    border-color: rgb(var(--color-accent) / 0.22);
   }
 
   .input {
-    @apply bg-input border border-border rounded-md px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-colors duration-150 w-full;
+    @apply bg-input border border-border rounded-xl px-3.5 py-2.5 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-all duration-150 w-full;
   }
 
   .textarea {
-    @apply bg-input border border-border rounded-md px-3 py-2 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent transition-colors duration-150 w-full resize-y min-h-[80px];
+    @apply bg-input border border-border rounded-xl px-3.5 py-2.5 text-sm text-text-primary placeholder-text-muted focus:outline-none focus:ring-2 focus:ring-accent/40 focus:border-accent transition-all duration-150 w-full resize-y min-h-[80px];
   }
 
   .label {
@@ -180,11 +215,11 @@
   }
 
   .page-header {
-    @apply flex items-center justify-between mb-6;
+    @apply flex items-center justify-between mb-8 gap-4;
   }
 
   .page-title {
-    @apply text-xl font-semibold text-text-primary;
+    @apply text-2xl font-semibold tracking-tight text-text-primary;
   }
 
   .markdown-body h1 { @apply text-xl font-semibold mb-4 mt-6 text-text-primary; }
@@ -195,7 +230,7 @@
   .markdown-body ol { @apply list-decimal list-inside mb-3 text-text-secondary; }
   .markdown-body li { @apply mb-1; }
   .markdown-body code { @apply bg-input px-1.5 py-0.5 rounded text-sm text-accent font-mono; }
-  .markdown-body pre { @apply bg-input p-4 rounded-lg overflow-x-auto mb-4; }
+  .markdown-body pre { @apply bg-input p-4 rounded-xl overflow-x-auto mb-4 border border-border; }
   .markdown-body pre code { @apply bg-transparent p-0; }
   .markdown-body table { @apply w-full border-collapse mb-4; }
   .markdown-body th { @apply text-left px-3 py-2 border-b border-border text-text-primary font-medium text-sm; }

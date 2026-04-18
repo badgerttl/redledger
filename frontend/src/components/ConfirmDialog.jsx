@@ -4,7 +4,7 @@ export default function ConfirmDialog({ open, title, message, onConfirm, onCance
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative bg-card border border-border rounded-lg p-6 w-full max-w-sm shadow-2xl">
+      <div className="relative bg-card/95 backdrop-blur-md border border-border/80 rounded-2xl p-6 w-full max-w-sm shadow-card-hover">
         <h3 className="text-lg font-semibold text-text-primary mb-2">{title}</h3>
         <p className="text-sm text-text-secondary mb-5">{message}</p>
         <div className="flex justify-end gap-3">
