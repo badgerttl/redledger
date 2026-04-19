@@ -12,7 +12,7 @@ from backend.routers import (
     engagements, scope, assets, notes, tool_output,
     screenshots, phases, findings, credentials,
     checklists, activity_log, tags, assistant, nmap_import, burp_import, reports,
-    engagement_io,
+    engagement_io, app_settings,
 )
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -58,6 +58,7 @@ app.include_router(burp_import.router, prefix="/api")
 
 app.include_router(reports.router, prefix="/api")
 app.include_router(engagement_io.router, prefix="/api")
+app.include_router(app_settings.router, prefix="/api")
 
 FRONTEND_DIR = BASE_DIR.parent / "frontend" / "dist"
 if FRONTEND_DIR.exists():

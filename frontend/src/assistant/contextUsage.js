@@ -1,8 +1,4 @@
-import {
-  ASSISTANT_CONTEXT_LIMIT_KEY,
-  ASSISTANT_SYSTEM_STORAGE_KEY,
-  DEFAULT_ASSISTANT_CONTEXT_TOKENS,
-} from './storageKeys';
+import { DEFAULT_ASSISTANT_CONTEXT_TOKENS } from './storageKeys';
 
 /** Rough token estimate (~4 chars per token) for budgeting / UI only. */
 export function estimateTokensFromText(text) {
@@ -26,50 +22,21 @@ export function estimateChatTokens(messages, systemPrompt) {
   return estimateTokensFromText(buildChatEstimatePayload(messages, systemPrompt));
 }
 
-export function getAssistantContextLimitTokens() {
-  try {
-    const raw = localStorage.getItem(ASSISTANT_CONTEXT_LIMIT_KEY);
-    if (raw == null || raw === '') return DEFAULT_ASSISTANT_CONTEXT_TOKENS;
-    const n = parseInt(String(raw), 10);
-    if (Number.isFinite(n) && n >= 1024 && n <= 2_000_000) return n;
-  } catch {
-    /* ignore */
-  }
-  return DEFAULT_ASSISTANT_CONTEXT_TOKENS;
-}
-
-/** Saved Settings value only; `null` if the user has not set a manual budget. */
-export function getAssistantContextLimitOverrideOrNull() {
-  try {
-    const raw = localStorage.getItem(ASSISTANT_CONTEXT_LIMIT_KEY);
-    if (raw == null || raw === '') return null;
-    const n = parseInt(String(raw), 10);
-    if (Number.isFinite(n) && n >= 1024 && n <= 2_000_000) return n;
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
-
 /**
- * Usage ring limit: manual Settings override (if set) else `context_length` from
+ * Usage ring limit: manual context_limit setting (if valid) else `context_length` from
  * `/assistant/models` (Ollama / LM Studio) else default.
+ *
  * @param { { context_length?: number } | null | undefined } modelMeta
+ * @param { string | null | undefined } contextLimitStr  — raw string value from DB settings
  */
-export function getEffectiveAssistantContextLimit(modelMeta) {
-  const manual = getAssistantContextLimitOverrideOrNull();
-  if (manual != null) return manual;
+export function getEffectiveAssistantContextLimit(modelMeta, contextLimitStr) {
+  if (contextLimitStr != null && contextLimitStr !== '') {
+    const n = parseInt(String(contextLimitStr), 10);
+    if (Number.isFinite(n) && n >= 1024 && n <= 2_000_000) return n;
+  }
   const p = modelMeta?.context_length;
   if (typeof p === 'number' && Number.isFinite(p) && p >= 1024 && p <= 2_000_000) return p;
   return DEFAULT_ASSISTANT_CONTEXT_TOKENS;
-}
-
-export function readSystemPromptForEstimate() {
-  try {
-    return localStorage.getItem(ASSISTANT_SYSTEM_STORAGE_KEY) ?? '';
-  } catch {
-    return '';
-  }
 }
 
 /**

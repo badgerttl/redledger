@@ -9,14 +9,14 @@ import AssistantAddNoteToAssetModal from '../components/AssistantAddNoteToAssetM
 import ContextUsageDonut from '../components/ContextUsageDonut';
 import {
   estimateChatTokens,
-  getAssistantContextLimitOverrideOrNull,
   getEffectiveAssistantContextLimit,
-  readSystemPromptForEstimate,
   pruneMessagesToFit,
 } from '../assistant/contextUsage';
-import { ASSISTANT_MODEL_STORAGE_KEY, ASSISTANT_SYSTEM_STORAGE_KEY } from '../assistant/storageKeys';
+import { parseSseLines } from '../assistant/sseUtils';
+import { ASSISTANT_MODEL_STORAGE_KEY } from '../assistant/storageKeys';
 import { loadAssistantMessages, saveAssistantMessages } from '../assistant/messagesStorage';
 import { useEngagement } from '../context/EngagementContext';
+import { useSettings } from '../context/SettingsContext';
 
 function ThinkingIndicator() {
   return (
@@ -26,31 +26,6 @@ function ThinkingIndicator() {
       <span className="assistant-thinking-dot" />
     </span>
   );
-}
-
-function parseSseLines(buffer) {
-  const lines = buffer.split('\n');
-  const rest = lines.pop() ?? '';
-  const deltas = [];
-  let hadError = null;
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith('data:')) continue;
-    const data = trimmed.slice(5).trim();
-    if (data === '[DONE]') continue;
-    try {
-      const j = JSON.parse(data);
-      if (j.error?.message) {
-        hadError = j.error.message;
-        continue;
-      }
-      const c = j.choices?.[0]?.delta?.content;
-      if (typeof c === 'string' && c.length) deltas.push(c);
-    } catch {
-      /* ignore partial JSON */
-    }
-  }
-  return { rest, deltas, hadError };
 }
 
 /**
@@ -129,6 +104,7 @@ function isChatNearBottom(el) {
 export default function Assistant() {
   const { id: engagementId } = useParams();
   const { current, selectEngagement } = useEngagement();
+  const { settings } = useSettings();
 
   const [models, setModels] = useState([]);
   const [model, setModel] = useState(() => localStorage.getItem(ASSISTANT_MODEL_STORAGE_KEY) || '');
@@ -312,7 +288,7 @@ export default function Assistant() {
 
     setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
 
-    const systemText = localStorage.getItem(ASSISTANT_SYSTEM_STORAGE_KEY)?.trim() || '';
+    const systemText = settings.assistant_system_prompt?.trim() || '';
     const contextLimit = getEffectiveAssistantContextLimit(selectedModelMeta);
     const { pruned, trimmed } = pruneMessagesToFit(nextMessages, systemText, contextLimit);
     if (trimmed) toast('Context trimmed — oldest messages removed to fit token budget', { icon: '✂️' });
@@ -441,13 +417,14 @@ export default function Assistant() {
   const llmConnected = !modelsLoading && models.length > 0;
 
   const contextUsedEstimate = useMemo(
-    () => estimateChatTokens(messages, readSystemPromptForEstimate()),
-    [messages],
+    () => estimateChatTokens(messages, settings.assistant_system_prompt || ''),
+    [messages, settings.assistant_system_prompt],
   );
   const selectedModelMeta = useMemo(() => models.find((m) => m.id === model), [models, model]);
-  const contextLimitTokens = getEffectiveAssistantContextLimit(selectedModelMeta);
+  const contextLimitTokens = getEffectiveAssistantContextLimit(selectedModelMeta, settings.assistant_context_limit);
   const contextLimitHint = (() => {
-    if (getAssistantContextLimitOverrideOrNull() != null) return 'Manual budget (Settings)';
+    const override = parseInt(settings.assistant_context_limit || '', 10);
+    if (Number.isFinite(override) && override >= 1024) return 'Manual budget (Settings)';
     if (
       typeof selectedModelMeta?.context_length === 'number' &&
       Number.isFinite(selectedModelMeta.context_length) &&

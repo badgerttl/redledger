@@ -4,22 +4,20 @@ import toast from 'react-hot-toast';
 import clsx from 'clsx';
 import { Settings as SettingsIcon, Sun, Moon, Download, Upload, Loader2 } from 'lucide-react';
 import api from '../api/client';
-import { getAssistantContextLimitTokens } from '../assistant/contextUsage';
-import {
-  ASSISTANT_SYSTEM_STORAGE_KEY,
-  ASSISTANT_CONTEXT_LIMIT_KEY,
-  DEFAULT_ASSISTANT_CONTEXT_TOKENS,
-} from '../assistant/storageKeys';
+import { DEFAULT_ASSISTANT_CONTEXT_TOKENS } from '../assistant/storageKeys';
 import { COLOR_THEMES, applyColorTheme, applyDarkMode } from '../theme/documentTheme';
 import { useEngagement } from '../context/EngagementContext';
+import { useSettings } from '../context/SettingsContext';
 
 export default function Settings() {
   const navigate = useNavigate();
   const { engagements, refresh } = useEngagement();
+  const { settings, loaded, updateSettings } = useSettings();
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
   const [colorTheme, setColorTheme] = useState(() => localStorage.getItem('colorTheme') || 'crimson');
-  const [systemPrompt, setSystemPrompt] = useState(() => localStorage.getItem(ASSISTANT_SYSTEM_STORAGE_KEY) || '');
-  const [contextLimit, setContextLimit] = useState(() => String(getAssistantContextLimitTokens()));
+  const [systemPrompt, setSystemPrompt] = useState('');
+  const [contextLimit, setContextLimit] = useState('');
+  const [findingsGenInstructions, setFindingsGenInstructions] = useState('');
 
   // Export / import state (engagement list comes from EngagementContext so Sidebar / Dashboard stay in sync)
   const [exportEngagementId, setExportEngagementId] = useState('');
@@ -27,12 +25,13 @@ export default function Settings() {
   const [importing, setImporting] = useState(false);
   const importInputRef = useRef(null);
 
+  // Sync local form state from DB settings once loaded
   useEffect(() => {
-    setDark(document.documentElement.classList.contains('dark'));
-    setColorTheme(localStorage.getItem('colorTheme') || 'crimson');
-    setSystemPrompt(localStorage.getItem(ASSISTANT_SYSTEM_STORAGE_KEY) || '');
-    setContextLimit(String(getAssistantContextLimitTokens()));
-  }, []);
+    if (!loaded) return;
+    setSystemPrompt(settings.assistant_system_prompt || '');
+    setContextLimit(settings.assistant_context_limit || '');
+    setFindingsGenInstructions(settings.findings_gen_instructions || '');
+  }, [loaded, settings]);
 
   useEffect(() => {
     if (engagements.length === 0) {
@@ -105,20 +104,19 @@ export default function Settings() {
     }
   };
 
-  const saveAssistantSettings = () => {
-    const v = systemPrompt.trim();
-    if (v) localStorage.setItem(ASSISTANT_SYSTEM_STORAGE_KEY, systemPrompt);
-    else localStorage.removeItem(ASSISTANT_SYSTEM_STORAGE_KEY);
-
+  const saveAssistantSettings = async () => {
     const n = parseInt(String(contextLimit).replace(/[\s_,]/g, ''), 10);
-    if (Number.isFinite(n) && n >= 1024 && n <= 2_000_000) {
-      localStorage.setItem(ASSISTANT_CONTEXT_LIMIT_KEY, String(n));
-    } else {
-      localStorage.removeItem(ASSISTANT_CONTEXT_LIMIT_KEY);
+    const validLimit = Number.isFinite(n) && n >= 1024 && n <= 2_000_000 ? String(n) : '';
+    try {
+      await updateSettings({
+        assistant_system_prompt: systemPrompt.trim(),
+        assistant_context_limit: validLimit,
+      });
+      setContextLimit(validLimit);
+      toast.success('Assistant settings saved');
+    } catch {
+      toast.error('Failed to save settings');
     }
-
-    toast.success('Assistant settings saved');
-    setContextLimit(String(getAssistantContextLimitTokens()));
   };
 
   return (
@@ -216,6 +214,46 @@ export default function Settings() {
             <div className="flex justify-end">
               <button type="button" onClick={saveAssistantSettings} className="btn-primary text-sm">
                 Save assistant settings
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Finding Generation</h2>
+          <div className="card space-y-3">
+            <div>
+              <label htmlFor="findings-gen-instructions" className="label">
+                Findings Generation Instructions
+              </label>
+              <p className="mb-2 text-xs text-text-muted">
+                System prompt sent to the local LLM when using AI-Assisted finding creation. Leave empty to use the built-in default. The LLM should respond with three markdown sections headed{' '}
+                <span className="font-mono text-2xs">## Description</span>,{' '}
+                <span className="font-mono text-2xs">## Impact</span>, and{' '}
+                <span className="font-mono text-2xs">## Remediation</span>.
+              </p>
+              <textarea
+                id="findings-gen-instructions"
+                className="textarea min-h-[160px] font-mono text-sm"
+                placeholder={`You are a professional penetration tester writing a formal security finding report.\nGiven the finding details, respond with ONLY the following markdown structure:\n\n## Description\n[Technical explanation, proof of concept]\n\n## Impact\n[Business and technical impact]\n\n## Remediation\n[Actionable remediation steps]`}
+                value={findingsGenInstructions}
+                onChange={(e) => setFindingsGenInstructions(e.target.value)}
+              />
+            </div>
+            <div className="flex justify-end">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await updateSettings({ findings_gen_instructions: findingsGenInstructions.trim() });
+                    toast.success('Finding generation settings saved');
+                  } catch {
+                    toast.error('Failed to save settings');
+                  }
+                }}
+                className="btn-primary text-sm"
+              >
+                Save finding generation settings
               </button>
             </div>
           </div>

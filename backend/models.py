@@ -243,6 +243,14 @@ class ActivityLog(Base):
     engagement = relationship("Engagement", back_populates="activity_logs")
 
 
+class Setting(Base):
+    """Global key-value store for app-level settings (system prompt, etc.)."""
+    __tablename__ = "settings"
+
+    key = Column(String(100), primary_key=True)
+    value = Column(Text, default="")
+
+
 class Tag(Base):
     __tablename__ = "tags"
 

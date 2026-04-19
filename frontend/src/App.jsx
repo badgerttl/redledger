@@ -1,5 +1,6 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { EngagementProvider, useEngagement } from './context/EngagementContext';
+import { SettingsProvider } from './context/SettingsContext';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Scope from './pages/Scope';
@@ -26,6 +27,7 @@ function LegacyAssistantRedirect() {
 
 export default function App() {
   return (
+    <SettingsProvider>
     <EngagementProvider>
       <div className="flex h-screen overflow-hidden">
         <Sidebar />
@@ -56,5 +58,6 @@ export default function App() {
         </main>
       </div>
     </EngagementProvider>
+    </SettingsProvider>
   );
 }
