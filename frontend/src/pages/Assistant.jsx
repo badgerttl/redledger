@@ -27,7 +27,7 @@ function ThinkingIndicator() {
   );
 }
 
-import { domNodeToMarkdown, markdownFromSelection, selectionFullyInside } from '../assistant/selectionUtils';
+import { markdownFromSelection, selectionFullyInside } from '../assistant/selectionUtils';
 
 /** Pixels from bottom of the chat panel to count as “at bottom” for follow-stream behavior. */
 const CHAT_BOTTOM_THRESHOLD_PX = 80;
@@ -221,7 +221,7 @@ export default function Assistant() {
     setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
 
     const systemText = settings.assistant_system_prompt?.trim() || '';
-    const contextLimit = getEffectiveAssistantContextLimit(selectedModelMeta);
+    const contextLimit = getEffectiveAssistantContextLimit(selectedModelMeta, settings.assistant_context_limit);
     const { pruned, trimmed } = pruneMessagesToFit(nextMessages, systemText, contextLimit);
     if (trimmed) toast('Context trimmed — oldest messages removed to fit token budget', { icon: '✂️' });
     const apiMessages = [];

@@ -42,9 +42,26 @@
   }
   .cover h1 { font-size: 2.2rem; font-weight: 700; color: var(--text); margin-bottom: 12px; }
   .cover .subtitle { font-size: 1rem; color: var(--muted); margin-bottom: 32px; }
-  .cover .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; text-align: left; max-width: 480px; margin: 0 auto; }
-  .cover .meta-item label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; margin-bottom: 2px; }
-  .cover .meta-item span { font-size: 14px; font-weight: 500; }
+  .cover .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 40px;
+    row-gap: 20px;
+    text-align: left;
+    max-width: 640px;
+    margin: 40px auto 0;
+    width: 100%;
+    align-items: start;
+  }
+  .cover .meta-item {
+    min-width: 0;
+    padding: 12px 14px 12px 16px;
+    border-left: 3px solid var(--accent);
+    background: rgba(99, 102, 241, 0.06);
+    border-radius: 0 8px 8px 0;
+  }
+  .cover .meta-item label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+  .cover .meta-item span { display: block; font-size: 14px; font-weight: 600; color: var(--text); word-break: break-word; }
 
   /* Section headings */
   h2 { font-size: 1.25rem; font-weight: 700; color: var(--text); margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid var(--border); }
@@ -106,6 +123,24 @@
   .finding-section { margin-bottom: 16px; }
   .finding-section:last-child { margin-bottom: 0; }
 
+  /* Rendered Markdown inside findings / summary */
+  .rich-text { font-size: 14px; line-height: 1.65; color: var(--text); }
+  .rich-text p { margin: 0 0 10px; }
+  .rich-text p:last-child { margin-bottom: 0; }
+  .rich-text ul, .rich-text ol { margin: 8px 0 10px 22px; padding: 0; }
+  .rich-text li { margin-bottom: 4px; }
+  .rich-text h1, .rich-text h2, .rich-text h3, .rich-text h4 { margin: 14px 0 8px; font-weight: 600; color: var(--text); }
+  .rich-text h1 { font-size: 1.15rem; }
+  .rich-text h2 { font-size: 1.05rem; border: none; padding: 0; margin-top: 12px; }
+  .rich-text h3 { font-size: 1rem; }
+  .rich-text h4 { font-size: 0.9rem; text-transform: none; letter-spacing: normal; color: var(--text); }
+  .rich-text code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; }
+  .rich-text pre { background: #0f172a; color: #e2e8f0; padding: 12px 14px; border-radius: 8px; overflow-x: auto; font-size: 12px; margin: 10px 0; }
+  .rich-text pre code { background: transparent; padding: 0; color: inherit; }
+  .rich-text blockquote { margin: 10px 0; padding: 8px 14px; border-left: 3px solid var(--accent); background: var(--card); color: var(--muted); }
+  .rich-text a { color: var(--accent); text-decoration: underline; word-break: break-all; }
+  .rich-text table { font-size: 13px; margin: 10px 0; }
+
   /* Scope table */
   table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
   th { text-align: left; padding: 8px 12px; background: var(--card); border-bottom: 2px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
@@ -116,6 +151,14 @@
   /* Progress bar */
   .progress-bar { background: var(--border); border-radius: 4px; height: 8px; margin: 8px 0; }
   .progress-fill { height: 100%; border-radius: 4px; background: var(--accent); }
+
+  /* Evidence grid */
+  .evidence-grid { display: flex; flex-direction: column; gap: 16px; margin-top: 8px; }
+  .evidence-item { border: 1px solid var(--border); border-radius: 8px; overflow: hidden; page-break-inside: avoid; }
+  .evidence-item img { display: block; max-width: 100%; height: auto; }
+  .evidence-caption { font-size: 12px; color: var(--muted); padding: 6px 10px; background: var(--card); border-top: 1px solid var(--border); }
+  .evidence-pdf { padding: 10px 14px; font-size: 13px; background: var(--card); color: var(--muted); }
+  .evidence-missing { padding: 10px 14px; font-size: 12px; color: #f97316; background: #fff7ed; }
 
   /* Print */
   @media print {
@@ -165,8 +208,10 @@
 <h2>Executive Summary</h2>
 <p>
   This penetration test engagement identified <strong>{{ findings | length }}</strong> security finding(s).
-  {% if engagement.description %}{{ engagement.description }}{% endif %}
 </p>
+{% if engagement.description %}
+<div class="rich-text" style="margin-bottom: 16px;">{{ engagement.description | markdown }}</div>
+{% endif %}
 
 <div class="stats-grid">
   <div class="stat-card stat-critical">
@@ -203,10 +248,10 @@
 
 {% if scope %}
 <h3>In Scope</h3>
-<p style="white-space: pre-wrap;">{{ scope.in_scope or 'Not defined.' }}</p>
+<div class="rich-text">{% if scope.in_scope %}{{ scope.in_scope | markdown }}{% else %}<p>Not defined.</p>{% endif %}</div>
 
 <h3>Out of Scope</h3>
-<p style="white-space: pre-wrap;">{{ scope.out_scope or 'Not defined.' }}</p>
+<div class="rich-text">{% if scope.out_scope %}{{ scope.out_scope | markdown }}{% else %}<p>Not defined.</p>{% endif %}</div>
 {% else %}
 <p>Scope not defined.</p>
 {% endif %}
@@ -230,7 +275,7 @@
 
 {% if engagement.rules_of_engagement %}
 <h3>Rules of Engagement</h3>
-<p style="white-space: pre-wrap;">{{ engagement.rules_of_engagement }}</p>
+<div class="rich-text">{{ engagement.rules_of_engagement | markdown }}</div>
 {% endif %}
 
 <!-- Findings -->
@@ -262,19 +307,45 @@
     {% if f.description %}
     <div class="finding-section">
       <h4>Description</h4>
-      <p style="white-space: pre-wrap;">{{ f.description }}</p>
+      <div class="rich-text">{{ f.description | markdown }}</div>
     </div>
     {% endif %}
     {% if f.impact %}
     <div class="finding-section">
       <h4>Impact</h4>
-      <p style="white-space: pre-wrap;">{{ f.impact }}</p>
+      <div class="rich-text">{{ f.impact | markdown }}</div>
     </div>
     {% endif %}
     {% if f.remediation %}
     <div class="finding-section">
       <h4>Remediation</h4>
-      <p style="white-space: pre-wrap;">{{ f.remediation }}</p>
+      <div class="rich-text">{{ f.remediation | markdown }}</div>
+    </div>
+    {% endif %}
+    {% if f.references and f.references.strip() %}
+    <div class="finding-section">
+      <h4>References</h4>
+      <div class="rich-text">{{ f.references | markdown }}</div>
+    </div>
+    {% endif %}
+    {% set embeds = f.screenshots | embed_screenshots %}
+    {% if embeds %}
+    <div class="finding-section">
+      <h4>Evidence</h4>
+      <div class="evidence-grid">
+        {% for e in embeds %}
+        <div class="evidence-item">
+          {% if e.data_uri %}
+          <img src="{{ e.data_uri }}" alt="{{ e.filename }}" />
+          {% elif e.is_pdf %}
+          <div class="evidence-pdf">📎 {{ e.filename }} (PDF attachment)</div>
+          {% elif e.missing %}
+          <div class="evidence-missing">⚠ {{ e.filename }} — file not found on disk</div>
+          {% endif %}
+          {% if e.caption %}<div class="evidence-caption">{{ e.caption }}</div>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
     </div>
     {% endif %}
   </div>

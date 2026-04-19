@@ -2,12 +2,14 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api/client';
 import toast from 'react-hot-toast';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, Check, X } from 'lucide-react';
 import MarkdownEditor from '../components/MarkdownEditor';
+import MarkdownViewer from '../components/MarkdownViewer';
 
 export default function Scope() {
   const { id } = useParams();
   const [scope, setScope] = useState({ in_scope: '', out_scope: '' });
+  const [editScope, setEditScope] = useState(null); // null = view, object = editing copy
   const [entries, setEntries] = useState([]);
   const [newEntry, setNewEntry] = useState({ entry_type: 'domain', value: '' });
   const [refresh, setRefresh] = useState(0);
@@ -31,9 +33,14 @@ export default function Scope() {
     return () => controller.abort();
   }, [id, refresh]);
 
+  const startEdit = () => setEditScope({ in_scope: scope.in_scope, out_scope: scope.out_scope });
+  const cancelEdit = () => setEditScope(null);
+
   const saveScope = async () => {
     try {
-      await api.put(`/engagements/${id}/scope`, { in_scope: scope.in_scope, out_scope: scope.out_scope });
+      await api.put(`/engagements/${id}/scope`, { in_scope: editScope.in_scope, out_scope: editScope.out_scope });
+      setScope({ in_scope: editScope.in_scope, out_scope: editScope.out_scope });
+      setEditScope(null);
       toast.success('Scope saved');
     } catch (err) { toast.error(err.message); }
   };
@@ -55,31 +62,62 @@ export default function Scope() {
     } catch (err) { toast.error(err.message); }
   };
 
+  const editing = editScope !== null;
+
   return (
     <div>
       <div className="page-header">
         <h1 className="page-title">Scope</h1>
-        <button onClick={saveScope} className="btn-primary">Save</button>
+        {editing ? (
+          <div className="flex gap-2">
+            <button onClick={saveScope} className="btn-primary flex items-center gap-2">
+              <Check className="w-4 h-4" /> Save
+            </button>
+            <button onClick={cancelEdit} className="btn-secondary flex items-center gap-2">
+              <X className="w-4 h-4" /> Cancel
+            </button>
+          </div>
+        ) : (
+          <button onClick={startEdit} className="btn-secondary flex items-center gap-2">
+            <Edit2 className="w-4 h-4" /> Edit
+          </button>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="card">
           <label className="label mb-2 block">In Scope</label>
-          <MarkdownEditor
-            value={scope.in_scope}
-            onChange={(v) => setScope({ ...scope, in_scope: v })}
-            placeholder="Define what is in scope for this engagement..."
-            minHeight="180px"
-          />
+          {editing ? (
+            <MarkdownEditor
+              value={editScope.in_scope}
+              onChange={(v) => setEditScope((prev) => ({ ...prev, in_scope: v }))}
+              placeholder="Define what is in scope for this engagement..."
+              minHeight="280px"
+            />
+          ) : (
+            <div className="min-h-[80px]">
+              {scope.in_scope?.trim()
+                ? <MarkdownViewer content={scope.in_scope} />
+                : <p className="text-sm text-text-muted italic">Not defined. Click Edit to add scope.</p>}
+            </div>
+          )}
         </div>
         <div className="card">
           <label className="label mb-2 block">Out of Scope</label>
-          <MarkdownEditor
-            value={scope.out_scope}
-            onChange={(v) => setScope({ ...scope, out_scope: v })}
-            placeholder="Define what is out of scope..."
-            minHeight="180px"
-          />
+          {editing ? (
+            <MarkdownEditor
+              value={editScope.out_scope}
+              onChange={(v) => setEditScope((prev) => ({ ...prev, out_scope: v }))}
+              placeholder="Define what is out of scope..."
+              minHeight="280px"
+            />
+          ) : (
+            <div className="min-h-[80px]">
+              {scope.out_scope?.trim()
+                ? <MarkdownViewer content={scope.out_scope} />
+                : <p className="text-sm text-text-muted italic">Not defined. Click Edit to add scope.</p>}
+            </div>
+          )}
         </div>
       </div>
 

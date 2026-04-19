@@ -403,7 +403,7 @@ export default function Assets() {
               </thead>
               <tbody>
                 {assetsForTable.map((a) => (
-                  <tr key={a.id} className="table-row cursor-pointer" onClick={() => navigate(`/e/${id}/assets/${a.id}`)}>
+                  <tr key={a.id} className="table-row cursor-pointer" onClick={() => navigate(`/e/${id}/assets/${a.id}`, { state: { from: `/e/${id}/assets`, fromLabel: 'Assets' } })}>
                     <td className="px-4 py-3 text-sm font-medium text-text-primary flex items-center gap-2">
                       {a.asset_type === 'host' ? <Server className="w-4 h-4 text-text-muted" /> : <Globe className="w-4 h-4 text-text-muted" />}
                       {a.name}

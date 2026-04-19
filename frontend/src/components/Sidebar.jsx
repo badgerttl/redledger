@@ -3,7 +3,7 @@ import { NavLink, useParams, useNavigate } from 'react-router-dom';
 import { useEngagement } from '../context/EngagementContext';
 import clsx from 'clsx';
 import {
-  LayoutDashboard, Target, Server, AlertTriangle, Key,
+  LayoutDashboard, Server, AlertTriangle, Key,
   Terminal, CheckSquare, Clock, BookOpen, FileText,
   ChevronLeft, ChevronRight, Shield, ChevronDown, Plus,
   Folder, MessageSquare, Settings,
@@ -11,7 +11,6 @@ import {
 
 const NAV_ITEMS = [
   { to: '', icon: LayoutDashboard, label: 'Dashboard' },
-  { to: '/scope', icon: Target, label: 'Scope' },
   { to: '/assets', icon: Server, label: 'Assets' },
   { to: '/findings', icon: AlertTriangle, label: 'Findings' },
   { to: '/credentials', icon: Key, label: 'Credentials' },

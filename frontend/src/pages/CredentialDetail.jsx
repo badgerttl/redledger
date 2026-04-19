@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/client';
 import toast from 'react-hot-toast';
 import MarkdownViewer from '../components/MarkdownViewer';
@@ -12,6 +12,9 @@ const SECRET_TYPES = ['plaintext', 'ntlm', 'sha256', 'other'];
 export default function CredentialDetail() {
   const { id, credentialId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const backTo = location.state?.from || `/e/${id}/credentials`;
+  const backLabel = location.state?.fromLabel || 'Credentials';
   const [cred, setCred] = useState(null);
   const [allAssets, setAllAssets] = useState([]);
   const [editing, setEditing] = useState(false);
@@ -77,8 +80,8 @@ export default function CredentialDetail() {
 
   return (
     <div>
-      <button onClick={() => navigate(`/e/${id}/credentials`)} className="btn-ghost mb-4 flex items-center gap-2">
-        <ArrowLeft className="w-4 h-4" /> Back to Credentials
+      <button onClick={() => navigate(backTo)} className="btn-ghost mb-4 flex items-center gap-2">
+        <ArrowLeft className="w-4 h-4" /> Back to {backLabel}
       </button>
 
       <div className="page-header">
@@ -208,7 +211,7 @@ export default function CredentialDetail() {
                   <span
                     key={a.id}
                     className="inline-flex items-center px-2 py-1 rounded bg-accent/10 text-accent text-xs cursor-pointer hover:bg-accent/20 transition-colors"
-                    onClick={() => navigate(`/e/${id}/assets/${a.id}`)}
+                    onClick={() => navigate(`/e/${id}/assets/${a.id}`, { state: { from: `/e/${id}/credentials/${credentialId}`, fromLabel: cred?.username || 'Credential' } })}
                   >
                     {a.name}{a.target ? ` (${a.target})` : ''}
                   </span>

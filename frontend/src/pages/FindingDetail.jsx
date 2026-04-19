@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/client';
 import toast from 'react-hot-toast';
 import SeverityBadge from '../components/SeverityBadge';
@@ -7,7 +7,7 @@ import StatusBadge from '../components/StatusBadge';
 import MarkdownViewer from '../components/MarkdownViewer';
 import MarkdownEditor from '../components/MarkdownEditor';
 import AttachmentGallery from '../components/AttachmentGallery';
-import { ArrowLeft, Trash2, Edit2, Save, Search, Loader2 } from 'lucide-react';
+import { ArrowLeft, Trash2, Edit2, Save, Search, Loader2, Download, ChevronDown } from 'lucide-react';
 
 const SEVERITIES = ['Critical', 'High', 'Medium', 'Low', 'Info'];
 const STATUSES = ['draft', 'confirmed', 'reported', 'remediated'];
@@ -16,6 +16,9 @@ const PHASES = ['', 'Reconnaissance', 'Scanning and Enumeration', 'Exploitation'
 export default function FindingDetail() {
   const { id, findingId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const backTo = location.state?.from || `/e/${id}/findings`;
+  const backLabel = location.state?.fromLabel || 'Findings';
   const [finding, setFinding] = useState(null);
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({});
@@ -23,6 +26,7 @@ export default function FindingDetail() {
   const [cveInput, setCveInput] = useState('');
   const [cveLookupLoading, setCveLookupLoading] = useState(false);
   const [allAssets, setAllAssets] = useState([]);
+  const [exportOpen, setExportOpen] = useState(false);
 
   const load = async () => {
     try {
@@ -153,8 +157,8 @@ export default function FindingDetail() {
 
   return (
     <div>
-      <button onClick={() => navigate(`/e/${id}/findings`)} className="btn-ghost mb-4 flex items-center gap-2">
-        <ArrowLeft className="w-4 h-4" /> Back to Findings
+      <button onClick={() => navigate(backTo)} className="btn-ghost mb-4 flex items-center gap-2">
+        <ArrowLeft className="w-4 h-4" /> Back to {backLabel}
       </button>
 
       <div className="page-header">
@@ -163,9 +167,45 @@ export default function FindingDetail() {
           <SeverityBadge severity={finding.severity} />
           <StatusBadge status={finding.status} />
         </div>
-        <button onClick={editing ? handleSave : startEdit} className="btn-primary flex items-center gap-2">
-          {editing ? <><Save className="w-4 h-4" /> Save</> : <><Edit2 className="w-4 h-4" /> Edit</>}
-        </button>
+        <div className="flex items-center gap-2">
+          {!editing && (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setExportOpen((o) => !o)}
+                className="btn-secondary flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Export
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+              {exportOpen && (
+                <div
+                  className="absolute right-0 top-full mt-1 w-44 bg-card border border-border rounded-lg shadow-xl z-20 overflow-hidden"
+                  onMouseLeave={() => setExportOpen(false)}
+                >
+                  <button
+                    type="button"
+                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-white/5 transition-colors flex items-center gap-2"
+                    onClick={() => { window.open(`/api/findings/${findingId}/report/download?format=html`, '_blank'); setExportOpen(false); }}
+                  >
+                    <Download className="w-3.5 h-3.5 text-text-muted" /> HTML
+                  </button>
+                  <button
+                    type="button"
+                    className="w-full text-left px-4 py-2.5 text-sm hover:bg-white/5 transition-colors flex items-center gap-2"
+                    onClick={() => { window.open(`/api/findings/${findingId}/report/download?format=pdf`, '_blank'); setExportOpen(false); }}
+                  >
+                    <Download className="w-3.5 h-3.5 text-text-muted" /> PDF
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          <button onClick={editing ? handleSave : startEdit} className="btn-primary flex items-center gap-2">
+            {editing ? <><Save className="w-4 h-4" /> Save</> : <><Edit2 className="w-4 h-4" /> Edit</>}
+          </button>
+        </div>
       </div>
 
       {editing ? (
@@ -243,16 +283,16 @@ export default function FindingDetail() {
 
             <div className="mb-4">
               <label className="label block mb-1">Description (Markdown)</label>
-              <MarkdownEditor value={form.description ?? ''} onChange={(v) => setForm(prev => ({ ...prev, description: v }))} minHeight="150px" />
+              <MarkdownEditor value={form.description ?? ''} onChange={(v) => setForm(prev => ({ ...prev, description: v }))} minHeight="480px" />
             </div>
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
                 <label className="label block mb-1">Impact</label>
-                <MarkdownEditor value={form.impact ?? ''} onChange={(v) => setForm(prev => ({ ...prev, impact: v }))} minHeight="100px" />
+                <MarkdownEditor value={form.impact ?? ''} onChange={(v) => setForm(prev => ({ ...prev, impact: v }))} minHeight="320px" />
               </div>
               <div>
                 <label className="label block mb-1">Remediation</label>
-                <MarkdownEditor value={form.remediation ?? ''} onChange={(v) => setForm(prev => ({ ...prev, remediation: v }))} minHeight="100px" />
+                <MarkdownEditor value={form.remediation ?? ''} onChange={(v) => setForm(prev => ({ ...prev, remediation: v }))} minHeight="320px" />
               </div>
             </div>
             <div>
@@ -280,7 +320,7 @@ export default function FindingDetail() {
               <h3 className="text-sm font-medium mb-2">Affected Assets</h3>
               <div className="flex gap-2 flex-wrap">
                 {finding.affected_assets.map(a => (
-                  <span key={a.id} className="inline-flex items-center px-2 py-1 rounded bg-accent/10 text-accent text-xs cursor-pointer" onClick={() => navigate(`/e/${id}/assets/${a.id}`)}>
+                  <span key={a.id} className="inline-flex items-center px-2 py-1 rounded bg-accent/10 text-accent text-xs cursor-pointer" onClick={() => navigate(`/e/${id}/assets/${a.id}`, { state: { from: `/e/${id}/findings/${findingId}`, fromLabel: finding?.title || 'Finding' } })}>
                     {a.name} ({a.target})
                   </span>
                 ))}

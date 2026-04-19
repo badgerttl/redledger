@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useLayoutEffect, useCallback } from 'react';
+import { useState, useEffect, useRef, useLayoutEffect, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import toast from 'react-hot-toast';
@@ -11,11 +11,14 @@ import MarkdownViewer from '../components/MarkdownViewer';
 import { parseSseLines } from '../assistant/sseUtils';
 import { ASSISTANT_MODEL_STORAGE_KEY } from '../assistant/storageKeys';
 import { useSettings } from '../context/SettingsContext';
-import { Plus, Trash2, X, FileText, Paperclip, Sparkles, Edit2, Square, RefreshCw } from 'lucide-react';
+import { Plus, Trash2, X, FileText, Paperclip, Sparkles, Edit2, Square, RefreshCw, Download, ChevronUp, ChevronDown } from 'lucide-react';
 
 const SEVERITIES = ['', 'Critical', 'High', 'Medium', 'Low', 'Info'];
 const STATUSES = ['', 'draft', 'confirmed', 'reported', 'remediated'];
 const PHASES = ['', 'Reconnaissance', 'Scanning and Enumeration', 'Exploitation', 'Post-Exploitation', 'Reporting'];
+
+const SEV_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4 };
+const STATUS_ORDER = { draft: 0, confirmed: 1, reported: 2, remediated: 3 };
 
 const DEFAULT_FINDINGS_GEN_INSTRUCTIONS =
 `You are a professional penetration tester writing a formal security finding report.
@@ -96,10 +99,16 @@ export default function Findings() {
   const [showCreate, setShowCreate] = useState(false);
   const [createMode, setCreateMode] = useState(null); // null | 'manual' | 'ai'
 
-  // Manual form state
-  const [form, setForm] = useState(EMPTY_MANUAL_FORM);
+  // Table controls
+  const [searchQuery, setSearchQuery] = useState('');
   const [filterSeverity, setFilterSeverity] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
+  const [filterAsset, setFilterAsset] = useState('');
+  const [sortKey, setSortKey] = useState('created_at');
+  const [sortDir, setSortDir] = useState('desc');
+
+  // Manual form state
+  const [form, setForm] = useState(EMPTY_MANUAL_FORM);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [queuedFiles, setQueuedFiles] = useState([]);
   const [templates, setTemplates] = useState([]);
@@ -137,11 +146,8 @@ export default function Findings() {
     const controller = new AbortController();
     const load = async () => {
       try {
-        const params = {};
-        if (filterSeverity) params.severity = filterSeverity;
-        if (filterStatus) params.status = filterStatus;
         const [findingsRes, assetsRes] = await Promise.all([
-          api.get(`/engagements/${id}/findings`, { params, signal: controller.signal }),
+          api.get(`/engagements/${id}/findings`, { signal: controller.signal }),
           api.get(`/engagements/${id}/assets`, { signal: controller.signal }),
         ]);
         setFindings(findingsRes.data);
@@ -152,7 +158,93 @@ export default function Findings() {
     };
     load();
     return () => controller.abort();
-  }, [id, filterSeverity, filterStatus, refresh]);
+  }, [id, refresh]);
+
+  const toggleColumnSort = (key) => {
+    if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    else { setSortKey(key); setSortDir('asc'); }
+  };
+
+  const visibleFindings = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    let list = findings;
+    if (q) {
+      list = list.filter((f) => {
+        const titleMatch = (f.title || '').toLowerCase().includes(q);
+        const assetMatch = f.affected_assets?.some((a) =>
+          (a.name || '').toLowerCase().includes(q) || (a.target || '').toLowerCase().includes(q)
+        );
+        const tagMatch = f.tags?.some((t) => (t.name || '').toLowerCase().includes(q));
+        return titleMatch || assetMatch || tagMatch;
+      });
+    }
+    if (filterSeverity) list = list.filter((f) => f.severity === filterSeverity);
+    if (filterStatus) list = list.filter((f) => f.status === filterStatus);
+    if (filterAsset) list = list.filter((f) => f.affected_assets?.some((a) => String(a.id) === filterAsset));
+
+    const mul = sortDir === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case 'title':
+          cmp = (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }); break;
+        case 'severity':
+          cmp = (SEV_ORDER[a.severity] ?? 5) - (SEV_ORDER[b.severity] ?? 5); break;
+        case 'cvss_score':
+          cmp = (a.cvss_score ?? -1) - (b.cvss_score ?? -1); break;
+        case 'status':
+          cmp = (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9); break;
+        case 'phase':
+          cmp = (a.phase || '').localeCompare(b.phase || '', undefined, { sensitivity: 'base' }); break;
+        case 'assets':
+          cmp = (a.affected_assets?.[0]?.name || '').localeCompare(b.affected_assets?.[0]?.name || '', undefined, { sensitivity: 'base' }); break;
+        default:
+          cmp = (a.created_at || '').localeCompare(b.created_at || ''); break;
+      }
+      if (cmp !== 0) return cmp * mul;
+      return a.id - b.id;
+    });
+  }, [findings, searchQuery, filterSeverity, filterStatus, filterAsset, sortKey, sortDir]);
+
+  const exportCsvVisible = () => {
+    const csvSafe = (v) => {
+      if (v == null) return '';
+      const s = String(v).replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+      return s && s[0] && '=-+@\t'.includes(s[0]) ? `'${s}` : s;
+    };
+    const rows = [
+      ['id', 'title', 'severity', 'cvss_score', 'cvss_vector', 'status', 'phase',
+        'description', 'impact', 'remediation', 'references', 'affected_assets', 'tags', 'created_at', 'updated_at'],
+      ...visibleFindings.map((f) => [
+        f.id,
+        csvSafe(f.title),
+        f.severity,
+        f.cvss_score ?? '',
+        csvSafe(f.cvss_vector || ''),
+        f.status,
+        csvSafe(f.phase || ''),
+        csvSafe(f.description || ''),
+        csvSafe(f.impact || ''),
+        csvSafe(f.remediation || ''),
+        csvSafe(f.references || ''),
+        csvSafe((f.affected_assets || []).map((a) => (a.target ? `${a.name} (${a.target})` : a.name)).join('; ')),
+        csvSafe((f.tags || []).map((t) => t.name).join('; ')),
+        f.created_at || '',
+        f.updated_at || '',
+      ]),
+    ];
+    const csv = '\ufeff' + rows.map((r) => r.map((cell) => {
+      const s = String(cell);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    }).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `findings_${id}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // ── Manual create ──────────────────────────────────────────────────────────
 
@@ -174,7 +266,7 @@ export default function Findings() {
       }
       toast.success('Finding created');
       closeCreate();
-      navigate(`/e/${id}/findings/${data.id}`);
+      navigate(`/e/${id}/findings/${data.id}`, { state: { from: `/e/${id}/findings`, fromLabel: 'Findings' } });
     } catch (err) {
       toast.error(err.message);
     }
@@ -301,7 +393,7 @@ export default function Findings() {
       const { data } = await api.post(`/engagements/${id}/findings`, payload);
       toast.success('Finding created');
       closeCreate();
-      navigate(`/e/${id}/findings/${data.id}`);
+      navigate(`/e/${id}/findings/${data.id}`, { state: { from: `/e/${id}/findings`, fromLabel: 'Findings' } });
     } catch (err) {
       toast.error(err.message);
     }
@@ -678,23 +770,76 @@ export default function Findings() {
         </div>
       )}
 
-      {/* ── Filters ──────────────────────────────────────────────────────────── */}
-      <div className="flex gap-4 mb-4">
-        <div className="flex gap-1 items-center">
-          <span className="text-xs text-text-muted mr-1">Severity:</span>
-          {SEVERITIES.map((s) => (
-            <button key={s} onClick={() => setFilterSeverity(s)} className={`btn-ghost text-xs ${filterSeverity === s ? 'bg-accent/10 text-accent' : ''}`}>
-              {s || 'All'}
-            </button>
-          ))}
+      {/* ── Search + Filters + Export ─────────────────────────────────────────── */}
+      <div className="space-y-3 mb-4">
+        {/* Row 1: search + export */}
+        <div className="flex flex-wrap gap-3 items-end justify-between">
+          <div className="min-w-[260px] flex-1 max-w-md">
+            <label className="label" htmlFor="findings-search">Search</label>
+            <input
+              id="findings-search"
+              type="search"
+              className="input text-sm"
+              placeholder="Title, asset name, tag…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              autoComplete="off"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={exportCsvVisible}
+            className="btn-secondary flex items-center gap-2 text-sm shrink-0"
+            title="Download visible findings as CSV"
+          >
+            <Download className="w-4 h-4" />
+            Export CSV ({visibleFindings.length})
+          </button>
         </div>
-        <div className="flex gap-1 items-center">
-          <span className="text-xs text-text-muted mr-1">Status:</span>
-          {STATUSES.map((s) => (
-            <button key={s} onClick={() => setFilterStatus(s)} className={`btn-ghost text-xs ${filterStatus === s ? 'bg-accent/10 text-accent' : ''}`}>
-              {s || 'All'}
+
+        {/* Row 2: filter pills */}
+        <div className="flex flex-wrap gap-x-5 gap-y-2 items-center">
+          <div className="flex gap-1 items-center flex-wrap">
+            <span className="text-xs text-text-muted mr-1">Severity:</span>
+            {SEVERITIES.map((s) => (
+              <button key={s} onClick={() => setFilterSeverity(s)} className={`btn-ghost text-xs ${filterSeverity === s ? 'bg-accent/10 text-accent' : ''}`}>
+                {s || 'All'}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1 items-center flex-wrap">
+            <span className="text-xs text-text-muted mr-1">Status:</span>
+            {STATUSES.map((s) => (
+              <button key={s} onClick={() => setFilterStatus(s)} className={`btn-ghost text-xs ${filterStatus === s ? 'bg-accent/10 text-accent' : ''}`}>
+                {s || 'All'}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1 items-center">
+            <span className="text-xs text-text-muted mr-1">Asset:</span>
+            <select
+              className="input text-xs py-1 pr-6 h-auto"
+              value={filterAsset}
+              onChange={(e) => setFilterAsset(e.target.value)}
+            >
+              <option value="">All</option>
+              {assets.map((a) => (
+                <option key={a.id} value={String(a.id)}>
+                  {a.name}{a.target ? ` (${a.target})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+          {(searchQuery || filterSeverity || filterStatus || filterAsset) && (
+            <button
+              type="button"
+              className="btn-ghost text-xs text-text-muted"
+              onClick={() => { setSearchQuery(''); setFilterSeverity(''); setFilterStatus(''); setFilterAsset(''); }}
+            >
+              <X className="w-3 h-3 inline-block mr-0.5" /> Clear filters
             </button>
-          ))}
+          )}
+          <span className="text-xs text-text-muted ml-auto">{visibleFindings.length} finding{visibleFindings.length !== 1 ? 's' : ''}</span>
         </div>
       </div>
 
@@ -703,23 +848,52 @@ export default function Findings() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">
-              <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Title</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Severity</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">CVSS</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Status</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Phase</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Tags</th>
-              <th className="w-10"></th>
+              {[
+                { key: 'title', label: 'Title' },
+                { key: 'severity', label: 'Severity' },
+                { key: 'cvss_score', label: 'CVSS' },
+                { key: 'status', label: 'Status' },
+                { key: 'phase', label: 'Phase' },
+                { key: 'assets', label: 'Assets' },
+                { key: 'tags', label: 'Tags', nosort: true },
+              ].map(({ key, label, nosort }) => (
+                <th key={key} className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">
+                  {nosort ? label : (
+                    <button
+                      type="button"
+                      onClick={() => toggleColumnSort(key)}
+                      className="inline-flex items-center gap-1 hover:text-text-primary transition-colors"
+                    >
+                      {label}
+                      {sortKey === key && (sortDir === 'asc' ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />)}
+                    </button>
+                  )}
+                </th>
+              ))}
+              <th className="w-10" />
             </tr>
           </thead>
           <tbody>
-            {findings.map((f) => (
-              <tr key={f.id} className="table-row cursor-pointer" onClick={() => navigate(`/e/${id}/findings/${f.id}`)}>
+            {visibleFindings.map((f) => (
+              <tr key={f.id} className="table-row cursor-pointer" onClick={() => navigate(`/e/${id}/findings/${f.id}`, { state: { from: `/e/${id}/findings`, fromLabel: 'Findings' } })}>
                 <td className="px-4 py-3 text-sm font-medium text-text-primary">{f.title}</td>
                 <td className="px-4 py-3"><SeverityBadge severity={f.severity} /></td>
                 <td className="px-4 py-3 text-sm text-text-secondary">{f.cvss_score ?? '—'}</td>
                 <td className="px-4 py-3"><StatusBadge status={f.status} /></td>
                 <td className="px-4 py-3 text-sm text-text-secondary">{f.phase || '—'}</td>
+                <td className="px-4 py-3 text-sm text-text-secondary">
+                  {f.affected_assets?.length
+                    ? (
+                      <div className="flex flex-col gap-0.5">
+                        {f.affected_assets.map((a) => (
+                          <span key={a.id} className="block">
+                            {a.name}{a.target ? <span className="text-text-muted font-mono text-xs"> ({a.target})</span> : ''}
+                          </span>
+                        ))}
+                      </div>
+                    )
+                    : '—'}
+                </td>
                 <td className="px-4 py-3"><div className="flex gap-1 flex-wrap">{f.tags?.map((t) => <TagBadge key={t.id} tag={t} />)}</div></td>
                 <td className="px-4 py-3">
                   <button
@@ -732,7 +906,10 @@ export default function Findings() {
               </tr>
             ))}
             {findings.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-text-muted">No findings yet</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-text-muted">No findings yet</td></tr>
+            )}
+            {findings.length > 0 && visibleFindings.length === 0 && (
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-text-muted">No findings match the current filters.</td></tr>
             )}
           </tbody>
         </table>

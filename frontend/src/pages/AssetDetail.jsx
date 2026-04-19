@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import api from '../api/client';
 import toast from 'react-hot-toast';
 import MarkdownViewer from '../components/MarkdownViewer';
@@ -17,6 +17,9 @@ const DEFAULT_TAG_COLORS = ['#6366f1', '#ef4444', '#f97316', '#eab308', '#22c55e
 export default function AssetDetail() {
   const { id, assetId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const backTo = location.state?.from || `/e/${id}/assets`;
+  const backLabel = location.state?.fromLabel || 'Assets';
   const [asset, setAsset] = useState(null);
   const [notes, setNotes] = useState([]);
   const [screenshots, setScreenshots] = useState([]);
@@ -209,8 +212,8 @@ export default function AssetDetail() {
 
   return (
     <div>
-      <button onClick={() => navigate(`/e/${id}/assets`)} className="btn-ghost mb-4 flex items-center gap-2">
-        <ArrowLeft className="w-4 h-4" /> Back to Assets
+      <button onClick={() => navigate(backTo)} className="btn-ghost mb-4 flex items-center gap-2">
+        <ArrowLeft className="w-4 h-4" /> Back to {backLabel}
       </button>
 
       <div className="page-header">
@@ -354,7 +357,7 @@ export default function AssetDetail() {
                   <tr
                     key={f.id}
                     className="table-row cursor-pointer"
-                    onClick={() => navigate(`/e/${id}/findings/${f.id}`)}
+                    onClick={() => navigate(`/e/${id}/findings/${f.id}`, { state: { from: `/e/${id}/assets/${assetId}`, fromLabel: asset?.name || 'Asset' } })}
                   >
                     <td className="px-4 py-2.5 text-sm font-medium text-text-primary">{f.title}</td>
                     <td className="px-4 py-2.5"><SeverityBadge severity={f.severity} /></td>
@@ -389,7 +392,7 @@ export default function AssetDetail() {
               </thead>
               <tbody>
                 {linkedCredentials.map((c) => (
-                  <tr key={c.id} className="table-row cursor-pointer" onClick={() => navigate(`/e/${id}/credentials/${c.id}`)}>
+                  <tr key={c.id} className="table-row cursor-pointer" onClick={() => navigate(`/e/${id}/credentials/${c.id}`, { state: { from: `/e/${id}/assets/${assetId}`, fromLabel: asset?.name || 'Asset' } })}>
                     <td className="px-4 py-2.5 text-sm font-mono text-text-primary">{c.username || '—'}</td>
                     <td className="px-4 py-2.5 text-sm font-mono">
                       <div className="flex items-center gap-2">
@@ -476,6 +479,7 @@ export default function AssetDetail() {
       />
 
       {/* Asset Assistant — LLM chat contextualised to this asset */}
+      <div className="mt-10">
       <AssetChat
         assetId={assetId}
         asset={asset}
@@ -484,6 +488,7 @@ export default function AssetDetail() {
         notes={notes}
         onNoteAdded={load}
       />
+      </div>
     </div>
   );
 }

@@ -5,6 +5,7 @@ sqlalchemy
 pydantic
 python-multipart
 jinja2
+markdown
 weasyprint
 python-libnmap
 aiofiles

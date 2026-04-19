@@ -181,7 +181,7 @@ export default function Credentials() {
                   </td>
                 </tr>
               ) : (
-                <tr key={c.id} className="table-row cursor-pointer group" onClick={() => navigate(`/e/${id}/credentials/${c.id}`)}>
+                <tr key={c.id} className="table-row cursor-pointer group" onClick={() => navigate(`/e/${id}/credentials/${c.id}`, { state: { from: `/e/${id}/credentials`, fromLabel: 'Credentials' } })}>
                   <td className="px-4 py-3 text-sm font-mono text-text-primary">{c.username || '—'}</td>
                   <td className="px-4 py-3 text-sm font-mono">
                     <div className="flex items-center gap-2">
