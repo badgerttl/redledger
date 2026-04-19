@@ -2,18 +2,25 @@ import { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
 import { Settings as SettingsIcon, Sun, Moon } from 'lucide-react';
-import { ASSISTANT_SYSTEM_STORAGE_KEY } from '../assistant/storageKeys';
+import { getAssistantContextLimitTokens } from '../assistant/contextUsage';
+import {
+  ASSISTANT_SYSTEM_STORAGE_KEY,
+  ASSISTANT_CONTEXT_LIMIT_KEY,
+  DEFAULT_ASSISTANT_CONTEXT_TOKENS,
+} from '../assistant/storageKeys';
 import { COLOR_THEMES, applyColorTheme, applyDarkMode } from '../theme/documentTheme';
 
 export default function Settings() {
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
   const [colorTheme, setColorTheme] = useState(() => localStorage.getItem('colorTheme') || 'crimson');
   const [systemPrompt, setSystemPrompt] = useState(() => localStorage.getItem(ASSISTANT_SYSTEM_STORAGE_KEY) || '');
+  const [contextLimit, setContextLimit] = useState(() => String(getAssistantContextLimitTokens()));
 
   useEffect(() => {
     setDark(document.documentElement.classList.contains('dark'));
     setColorTheme(localStorage.getItem('colorTheme') || 'crimson');
     setSystemPrompt(localStorage.getItem(ASSISTANT_SYSTEM_STORAGE_KEY) || '');
+    setContextLimit(String(getAssistantContextLimitTokens()));
   }, []);
 
   const toggleTheme = () => {
@@ -29,11 +36,20 @@ export default function Settings() {
     localStorage.setItem('colorTheme', id);
   };
 
-  const saveSystemPrompt = () => {
+  const saveAssistantSettings = () => {
     const v = systemPrompt.trim();
     if (v) localStorage.setItem(ASSISTANT_SYSTEM_STORAGE_KEY, systemPrompt);
     else localStorage.removeItem(ASSISTANT_SYSTEM_STORAGE_KEY);
-    toast.success(v ? 'System instructions saved' : 'System instructions cleared');
+
+    const n = parseInt(String(contextLimit).replace(/[\s_,]/g, ''), 10);
+    if (Number.isFinite(n) && n >= 1024 && n <= 2_000_000) {
+      localStorage.setItem(ASSISTANT_CONTEXT_LIMIT_KEY, String(n));
+    } else {
+      localStorage.removeItem(ASSISTANT_CONTEXT_LIMIT_KEY);
+    }
+
+    toast.success('Assistant settings saved');
+    setContextLimit(String(getAssistantContextLimitTokens()));
   };
 
   return (
@@ -94,6 +110,25 @@ export default function Settings() {
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Assistant</h2>
           <div className="card space-y-3">
             <div>
+              <label htmlFor="assistant-context-limit" className="label">
+                Context window (tokens)
+              </label>
+              <p className="mb-2 text-xs text-text-muted">
+                Optional manual cap for the Assistant usage ring. Save with the field cleared to remove the override;
+                then the ring uses the per-model context from your local runtime when the app can read it, otherwise{' '}
+                {DEFAULT_ASSISTANT_CONTEXT_TOKENS.toLocaleString()}. Allowed range 1,024–2,000,000.
+              </p>
+              <input
+                id="assistant-context-limit"
+                type="text"
+                inputMode="numeric"
+                className="input max-w-xs font-mono text-sm"
+                value={contextLimit}
+                onChange={(e) => setContextLimit(e.target.value)}
+                placeholder={String(DEFAULT_ASSISTANT_CONTEXT_TOKENS)}
+              />
+            </div>
+            <div>
               <label htmlFor="system-prompt" className="label">
                 System instructions
               </label>
@@ -110,8 +145,8 @@ export default function Settings() {
               />
             </div>
             <div className="flex justify-end">
-              <button type="button" onClick={saveSystemPrompt} className="btn-primary text-sm">
-                Save instructions
+              <button type="button" onClick={saveAssistantSettings} className="btn-primary text-sm">
+                Save assistant settings
               </button>
             </div>
           </div>
