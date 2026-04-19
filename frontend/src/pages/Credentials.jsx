@@ -163,8 +163,8 @@ export default function Credentials() {
               <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Secret</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Type</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Access</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Assets</th>
               <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Source</th>
+              <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Assets</th>
               <th className="w-16"></th>
             </tr>
           </thead>
@@ -198,12 +198,20 @@ export default function Credentials() {
                     <span className="px-2 py-0.5 rounded text-xs bg-accent/10 text-accent">{c.secret_type}</span>
                   </td>
                   <td className="px-4 py-3 text-sm text-text-secondary">{c.access_level || '—'}</td>
+                  <td className="px-4 py-3 text-sm text-text-secondary">{c.source || '—'}</td>
                   <td className="px-4 py-3 text-sm text-text-secondary">
-                    {c.assets?.length > 0
-                      ? <div className="flex gap-1 flex-wrap">{c.assets.map(a => <span key={a.id} className="px-1.5 py-0.5 rounded text-xs bg-white/5 border border-border">{a.name}</span>)}</div>
+                    {c.assets?.length
+                      ? (
+                        <div className="flex flex-col gap-0.5">
+                          {c.assets.map((a) => (
+                            <span key={a.id} className="block">
+                              {a.name}{a.target ? <span className="text-text-muted font-mono text-xs"> ({a.target})</span> : ''}
+                            </span>
+                          ))}
+                        </div>
+                      )
                       : '—'}
                   </td>
-                  <td className="px-4 py-3 text-sm text-text-secondary">{c.source || '—'}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button onClick={(e) => { e.stopPropagation(); startEdit(c); }} className="text-text-muted hover:text-accent transition-colors">

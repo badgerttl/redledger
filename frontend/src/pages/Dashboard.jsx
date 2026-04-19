@@ -414,8 +414,8 @@ export default function Dashboard() {
               <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Username</th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Type</th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Access Level</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Assets</th>
               <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Source</th>
+              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Assets</th>
             </tr>
           </thead>
           <tbody>
@@ -426,12 +426,20 @@ export default function Dashboard() {
                   <span className="px-2 py-0.5 rounded text-xs bg-accent/10 text-accent">{c.secret_type}</span>
                 </td>
                 <td className="px-4 py-2.5 text-sm text-text-secondary">{c.access_level || '—'}</td>
+                <td className="px-4 py-2.5 text-sm text-text-secondary">{c.source || '—'}</td>
                 <td className="px-4 py-2.5 text-sm text-text-secondary">
-                  {c.assets?.length > 0
-                    ? <div className="flex gap-1 flex-wrap">{c.assets.map((a) => <span key={a.id} className="px-1.5 py-0.5 rounded text-xs bg-white/5 border border-border">{a.name}</span>)}</div>
+                  {c.assets?.length
+                    ? (
+                      <div className="flex flex-col gap-0.5">
+                        {c.assets.map((a) => (
+                          <span key={a.id} className="block">
+                            {a.name}{a.target ? <span className="text-text-muted font-mono text-xs"> ({a.target})</span> : ''}
+                          </span>
+                        ))}
+                      </div>
+                    )
                     : '—'}
                 </td>
-                <td className="px-4 py-2.5 text-sm text-text-secondary">{c.source || '—'}</td>
               </tr>
             ))}
             {credentials.length === 0 && !loading && (
