@@ -8,6 +8,7 @@ import AssetDetail from './pages/AssetDetail';
 import Findings from './pages/Findings';
 import FindingDetail from './pages/FindingDetail';
 import Credentials from './pages/Credentials';
+import CredentialDetail from './pages/CredentialDetail';
 import ToolOutput from './pages/ToolOutput';
 import Checklists from './pages/Checklists';
 import ActivityLog from './pages/ActivityLog';
@@ -15,6 +16,7 @@ import Guides from './pages/Guides';
 import Assistant from './pages/Assistant';
 import Settings from './pages/Settings';
 import Report from './pages/Report';
+
 
 function LegacyAssistantRedirect() {
   const { current } = useEngagement();
@@ -38,9 +40,11 @@ export default function App() {
               <Route path="/e/:id/findings" element={<Findings />} />
               <Route path="/e/:id/findings/:findingId" element={<FindingDetail />} />
               <Route path="/e/:id/credentials" element={<Credentials />} />
+              <Route path="/e/:id/credentials/:credentialId" element={<CredentialDetail />} />
               <Route path="/e/:id/tool-output" element={<ToolOutput />} />
               <Route path="/e/:id/checklists" element={<Checklists />} />
               <Route path="/e/:id/activity" element={<ActivityLog />} />
+
               <Route path="/e/:id/report" element={<Report />} />
               <Route path="/guides" element={<Guides />} />
               <Route path="/assistant" element={<LegacyAssistantRedirect />} />

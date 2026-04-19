@@ -15,20 +15,28 @@ export default function ToolOutput() {
   const [outputs, setOutputs] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
+  const [showBurpImport, setShowBurpImport] = useState(false);
   const [form, setForm] = useState({ tool_name: '', phase: '', content: '' });
   const [filterPhase, setFilterPhase] = useState('');
   const [expandedId, setExpandedId] = useState(null);
+  const [refresh, setRefresh] = useState(0);
+  const reload = () => setRefresh(r => r + 1);
 
-  const load = async () => {
-    try {
-      const params = {};
-      if (filterPhase) params.phase = filterPhase;
-      const { data } = await api.get(`/engagements/${id}/tool-output`, { params });
-      setOutputs(data);
-    } catch { /* empty */ }
-  };
-
-  useEffect(() => { load(); }, [id, filterPhase]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const params = {};
+        if (filterPhase) params.phase = filterPhase;
+        const { data } = await api.get(`/engagements/${id}/tool-output`, { params, signal: controller.signal });
+        setOutputs(data);
+      } catch (err) {
+        if (err.name !== 'CanceledError') toast.error(err.message);
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [id, filterPhase, refresh]);
 
   const handleCreate = async () => {
     if (!form.content.trim()) return toast.error('Content is required');
@@ -37,8 +45,8 @@ export default function ToolOutput() {
       toast.success('Tool output added');
       setShowCreate(false);
       setForm({ tool_name: '', phase: '', content: '' });
-      load();
-    } catch { toast.error('Failed to add output'); }
+      reload();
+    } catch (err) { toast.error(err.message); }
   };
 
   const handleNmapImport = async (files) => {
@@ -50,15 +58,28 @@ export default function ToolOutput() {
       const { data } = await api.post(`/engagements/${id}/import/nmap`, formData);
       toast.success(`Imported ${data.hosts_found} host(s)`);
       setShowImport(false);
-      load();
-    } catch { toast.error('Import failed — is this a valid Nmap XML file?'); }
+      reload();
+    } catch (err) { toast.error(err.name !== 'CanceledError' ? err.message : 'Import failed'); }
+  };
+
+  const handleBurpImport = async (files) => {
+    const file = files[0];
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    try {
+      const { data } = await api.post(`/engagements/${id}/import/burp`, formData);
+      toast.success(`Imported ${data.findings_created} finding(s) from Burp Suite`);
+      setShowBurpImport(false);
+      reload();
+    } catch (err) { toast.error(err.message); }
   };
 
   const handleDelete = async (outputId) => {
     try {
       await api.delete(`/tool-output/${outputId}`);
-      load();
-    } catch { toast.error('Failed to delete'); }
+      reload();
+    } catch (err) { toast.error(err.message); }
   };
 
   return (
@@ -66,6 +87,9 @@ export default function ToolOutput() {
       <div className="page-header">
         <h1 className="page-title">Tool Output</h1>
         <div className="flex gap-2">
+          <button onClick={() => setShowBurpImport(true)} className="btn-secondary flex items-center gap-2">
+            <Upload className="w-4 h-4" /> Import Burp
+          </button>
           <button onClick={() => setShowImport(true)} className="btn-secondary flex items-center gap-2">
             <Upload className="w-4 h-4" /> Import Nmap
           </button>
@@ -74,6 +98,19 @@ export default function ToolOutput() {
           </button>
         </div>
       </div>
+
+      {showBurpImport && (
+        <div className="card mb-6">
+          <h2 className="text-base font-medium mb-4">Import Burp Suite XML</h2>
+          <p className="text-sm text-text-secondary mb-3">Export from Burp Suite: Issues → Report → XML. Creates findings from all discovered issues.</p>
+          <FileUpload
+            onDrop={handleBurpImport}
+            accept={{ 'text/xml': ['.xml'], 'application/xml': ['.xml'] }}
+            label="Drop Burp Suite XML file here or click to upload"
+          />
+          <button onClick={() => setShowBurpImport(false)} className="btn-secondary mt-3">Cancel</button>
+        </div>
+      )}
 
       {showImport && (
         <div className="card mb-6">

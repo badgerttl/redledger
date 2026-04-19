@@ -71,3 +71,19 @@ export function readSystemPromptForEstimate() {
     return '';
   }
 }
+
+/**
+ * Remove oldest messages until the estimated token count fits under `limit`.
+ * Always keeps at least the last message (the new user turn).
+ * Returns { pruned: Message[], trimmed: boolean }
+ */
+export function pruneMessagesToFit(messages, systemPrompt, limit) {
+  if (estimateChatTokens(messages, systemPrompt) <= limit) {
+    return { pruned: messages, trimmed: false };
+  }
+  let pruned = [...messages];
+  while (pruned.length > 1 && estimateChatTokens(pruned, systemPrompt) > limit) {
+    pruned.shift();
+  }
+  return { pruned, trimmed: true };
+}

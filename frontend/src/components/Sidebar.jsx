@@ -18,6 +18,7 @@ const NAV_ITEMS = [
   { to: '/tool-output', icon: Terminal, label: 'Tool Output' },
   { to: '/checklists', icon: CheckSquare, label: 'Checklists' },
   { to: '/activity', icon: Clock, label: 'Activity Log' },
+
   { to: '/report', icon: FileText, label: 'Report' },
   { to: '/assistant', icon: MessageSquare, label: 'Assistant' },
 ];

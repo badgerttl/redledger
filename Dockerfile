@@ -21,7 +21,8 @@ COPY backend/ ./backend/
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
 ENV DATA_DIR=/app/data
-RUN mkdir -p /app/data/uploads /app/data/reports && chmod -R 777 /app/data
+RUN mkdir -p /app/data/uploads /app/data/reports && \
+    chmod 755 /app/data /app/data/uploads /app/data/reports
 
 EXPOSE 8000
 CMD ["uvicorn", "backend.main:app", "--host", "0.0.0.0", "--port", "8000"]

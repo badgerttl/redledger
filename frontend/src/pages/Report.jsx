@@ -15,7 +15,7 @@ export default function Report() {
       await api.post(`/engagements/${id}/report`);
       toast.success('Report generated');
       setGenerated(true);
-    } catch { toast.error('Failed to generate report'); }
+    } catch (err) { toast.error(err.message); }
     setGenerating(false);
   };
 
@@ -44,13 +44,19 @@ export default function Report() {
       {generated && (
         <div className="card">
           <h2 className="text-base font-medium mb-3">Download Report</h2>
-          <div className="flex gap-3">
+          <div className="flex gap-3 flex-wrap">
             <button onClick={() => handleDownload('md')} className="btn-secondary flex items-center gap-2">
               <Download className="w-4 h-4" /> Markdown (.md)
             </button>
+            <button onClick={() => handleDownload('html')} className="btn-secondary flex items-center gap-2">
+              <Download className="w-4 h-4" /> HTML (.html)
+            </button>
+            <button onClick={() => handleDownload('pdf')} className="btn-secondary flex items-center gap-2">
+              <Download className="w-4 h-4" /> PDF (.pdf)
+            </button>
           </div>
           <p className="text-xs text-text-muted mt-3">
-            The Markdown file can be converted to PDF using tools like pandoc or any Markdown editor.
+            HTML and PDF exports are styled and print-ready. Markdown can be further edited in any text editor.
           </p>
         </div>
       )}

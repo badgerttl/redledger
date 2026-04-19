@@ -34,14 +34,19 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!current) return;
+    const controller = new AbortController();
+    const sig = { signal: controller.signal };
     Promise.all([
-      api.get(`/engagements/${current.id}/assets`),
-      api.get(`/engagements/${current.id}/findings`),
-      api.get(`/engagements/${current.id}/credentials`),
-      api.get(`/engagements/${current.id}/activity-log?limit=5`),
+      api.get(`/engagements/${current.id}/assets`, sig),
+      api.get(`/engagements/${current.id}/findings`, sig),
+      api.get(`/engagements/${current.id}/credentials`, sig),
+      api.get(`/engagements/${current.id}/activity-log?limit=5`, sig),
     ]).then(([assets, findings, creds, activity]) => {
       setStats({ assets: assets.data.length, findings: findings.data.length, credentials: creds.data.length, recentActivity: activity.data.items });
-    }).catch(() => {});
+    }).catch((err) => {
+      if (err.name !== 'CanceledError') toast.error(err.message);
+    });
+    return () => controller.abort();
   }, [current]);
 
   const handleCreate = async () => {
@@ -53,7 +58,7 @@ export default function Dashboard() {
       setShowCreate(false);
       setForm({ name: '', description: '', client_name: '', client_contact: '', start_date: '', end_date: '', rules_of_engagement: '' });
       navigate(`/e/${data.id}`);
-    } catch { toast.error('Failed to create engagement'); }
+    } catch (err) { toast.error(err.message); }
   };
 
   const handleUpdate = async () => {
@@ -63,7 +68,7 @@ export default function Dashboard() {
       setCurrent(data);
       setEditing(false);
       refresh();
-    } catch { toast.error('Failed to update'); }
+    } catch (err) { toast.error(err.message); }
   };
 
   const confirmDelete = async (eid) => {
@@ -74,7 +79,7 @@ export default function Dashboard() {
       setCurrent(null);
       refresh();
       navigate('/');
-    } catch { toast.error('Failed to delete'); }
+    } catch (err) { toast.error(err.message); }
   };
 
   // Engagement list view

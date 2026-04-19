@@ -7,38 +7,68 @@ import StatusBadge from '../components/StatusBadge';
 import TagBadge from '../components/TagBadge';
 import ConfirmDialog from '../components/ConfirmDialog';
 import MarkdownEditor from '../components/MarkdownEditor';
-import { Plus, Trash2, X, FileText, Paperclip } from 'lucide-react';
+import { Plus, Trash2, X, FileText, Paperclip, Server, Check } from 'lucide-react';
 
 const SEVERITIES = ['', 'Critical', 'High', 'Medium', 'Low', 'Info'];
 const STATUSES = ['', 'draft', 'confirmed', 'reported', 'remediated'];
 const PHASES = ['', 'Reconnaissance', 'Scanning and Enumeration', 'Exploitation', 'Post-Exploitation', 'Reporting'];
 
+const EMPTY_FORM = { title: '', severity: 'Info', status: 'draft', phase: '', description: '', impact: '', remediation: '', cvss_score: '', cvss_vector: '', asset_ids: [] };
+
 export default function Findings() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [findings, setFindings] = useState([]);
+  const [assets, setAssets] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ title: '', severity: 'Info', status: 'draft', phase: '', description: '', impact: '', remediation: '', cvss_score: '', cvss_vector: '' });
+  const [form, setForm] = useState(EMPTY_FORM);
   const [filterSeverity, setFilterSeverity] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [queuedFiles, setQueuedFiles] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [showTemplates, setShowTemplates] = useState(false);
+  const [refresh, setRefresh] = useState(0);
+  const reload = () => setRefresh(r => r + 1);
 
-  const load = async () => {
-    try {
-      const params = {};
-      if (filterSeverity) params.severity = filterSeverity;
-      if (filterStatus) params.status = filterStatus;
-      const { data } = await api.get(`/engagements/${id}/findings`, { params });
-      setFindings(data);
-    } catch { /* empty */ }
+  useEffect(() => {
+    api.get('/finding-templates').then(({ data }) => setTemplates(data)).catch(() => {});
+    api.get(`/engagements/${id}/assets`).then(({ data }) => setAssets(data)).catch(() => {});
+  }, [id]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const params = {};
+        if (filterSeverity) params.severity = filterSeverity;
+        if (filterStatus) params.status = filterStatus;
+        const { data } = await api.get(`/engagements/${id}/findings`, { params, signal: controller.signal });
+        setFindings(data);
+      } catch (err) {
+        if (err.name !== 'CanceledError') toast.error(err.message);
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [id, filterSeverity, filterStatus, refresh]);
+
+  const toggleAsset = (assetId) => {
+    setForm(prev => ({
+      ...prev,
+      asset_ids: prev.asset_ids.includes(assetId)
+        ? prev.asset_ids.filter(a => a !== assetId)
+        : [...prev.asset_ids, assetId],
+    }));
   };
-
-  useEffect(() => { load(); }, [id, filterSeverity, filterStatus]);
 
   const handleCreate = async () => {
     if (!form.title.trim()) return toast.error('Title is required');
-    const payload = { ...form, cvss_score: form.cvss_score ? parseFloat(form.cvss_score) : null };
+    if (form.cvss_score !== '') {
+      const score = parseFloat(form.cvss_score);
+      if (isNaN(score) || score < 0 || score > 10) return toast.error('CVSS score must be between 0.0 and 10.0');
+    }
+    const payload = { ...form, cvss_score: form.cvss_score !== '' ? parseFloat(form.cvss_score) : null };
     try {
       const { data } = await api.post(`/engagements/${id}/findings`, payload);
       for (const file of queuedFiles) {
@@ -49,10 +79,10 @@ export default function Findings() {
       }
       toast.success('Finding created');
       setShowCreate(false);
-      setForm({ title: '', severity: 'Info', status: 'draft', phase: '', description: '', impact: '', remediation: '', cvss_score: '', cvss_vector: '' });
+      setForm(EMPTY_FORM);
       setQueuedFiles([]);
       navigate(`/e/${id}/findings/${data.id}`);
-    } catch { toast.error('Failed to create finding'); }
+    } catch (err) { toast.error(err.message); }
   };
 
   const confirmDelete = async (findingId) => {
@@ -60,8 +90,8 @@ export default function Findings() {
       await api.delete(`/findings/${findingId}`);
       toast.success('Deleted');
       setDeleteTarget(null);
-      load();
-    } catch { toast.error('Failed to delete'); }
+      reload();
+    } catch (err) { toast.error(err.message); }
   };
 
   return (
@@ -75,9 +105,57 @@ export default function Findings() {
 
       {showCreate && (
         <div className="card mb-6">
-          <h2 className="text-base font-medium mb-4">Create Finding</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-base font-medium">Create Finding</h2>
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowTemplates(!showTemplates)}
+                className="btn-secondary text-xs flex items-center gap-1.5"
+              >
+                <FileText className="w-3.5 h-3.5" /> Load Template
+              </button>
+              {showTemplates && (
+                <div className="absolute right-0 top-full mt-1 w-64 bg-card border border-border rounded-lg shadow-xl z-20 max-h-80 overflow-y-auto">
+                  {templates.map((t) => (
+                    <button
+                      key={t.id}
+                      type="button"
+                      className="w-full text-left px-3 py-2 text-sm hover:bg-white/5 flex items-center gap-2"
+                      onClick={() => {
+                        setForm(prev => ({
+                          ...prev,
+                          title: t.title,
+                          severity: t.severity,
+                          status: 'draft',
+                          phase: t.phase || '',
+                          description: t.description || '',
+                          impact: t.impact || '',
+                          remediation: t.remediation || '',
+                          cvss_score: t.cvss_score != null ? String(t.cvss_score) : '',
+                          cvss_vector: t.cvss_vector || '',
+                        }));
+                        setShowTemplates(false);
+                      }}
+                    >
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${
+                        t.severity === 'Critical' ? 'bg-sev-critical' :
+                        t.severity === 'High' ? 'bg-sev-high' :
+                        t.severity === 'Medium' ? 'bg-sev-medium' :
+                        t.severity === 'Low' ? 'bg-sev-low' : 'bg-sev-info'
+                      }`} />
+                      <span className="truncate">{t.title}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
           <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="col-span-2"><label className="label">Title *</label><input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
+            <div className="col-span-2">
+              <label className="label">Title *</label>
+              <input className="input" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+            </div>
             <div>
               <label className="label">Severity</label>
               <select className="input" value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })}>
@@ -101,18 +179,46 @@ export default function Findings() {
               <div><label className="label">CVSS Vector</label><input className="input" placeholder="CVSS:3.1/AV:N/..." value={form.cvss_vector} onChange={(e) => setForm({ ...form, cvss_vector: e.target.value })} /></div>
             </div>
           </div>
+          {assets.length > 0 && (
+            <div className="mb-4">
+              <label className="label flex items-center gap-1.5 mb-2">
+                <Server className="w-3.5 h-3.5" /> Affected Assets
+              </label>
+              <div className="flex flex-wrap gap-2">
+                {assets.map((a) => {
+                  const selected = form.asset_ids.includes(a.id);
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => toggleAsset(a.id)}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        selected
+                          ? 'border-accent bg-accent/15 text-accent'
+                          : 'border-border bg-input/40 text-text-secondary hover:border-text-muted hover:text-text-primary'
+                      }`}
+                    >
+                      {selected && <Check className="w-3 h-3 shrink-0" />}
+                      <span className="truncate max-w-[180px]">{a.name}{a.target ? ` (${a.target})` : ''}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div className="mb-4">
             <label className="label block mb-1">Description (Markdown)</label>
-            <MarkdownEditor value={form.description} onChange={(v) => setForm({ ...form, description: v })} minHeight="120px" />
+            <MarkdownEditor value={form.description} onChange={(v) => setForm(prev => ({ ...prev, description: v }))} minHeight="120px" />
           </div>
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
               <label className="label block mb-1">Impact</label>
-              <MarkdownEditor value={form.impact} onChange={(v) => setForm({ ...form, impact: v })} minHeight="100px" />
+              <MarkdownEditor value={form.impact} onChange={(v) => setForm(prev => ({ ...prev, impact: v }))} minHeight="100px" />
             </div>
             <div>
               <label className="label block mb-1">Remediation</label>
-              <MarkdownEditor value={form.remediation} onChange={(v) => setForm({ ...form, remediation: v })} minHeight="100px" />
+              <MarkdownEditor value={form.remediation} onChange={(v) => setForm(prev => ({ ...prev, remediation: v }))} minHeight="100px" />
             </div>
           </div>
           <div className="mb-4">
@@ -153,7 +259,7 @@ export default function Findings() {
           </div>
           <div className="flex gap-3">
             <button onClick={handleCreate} className="btn-primary">Create</button>
-            <button onClick={() => { setShowCreate(false); setQueuedFiles([]); }} className="btn-secondary">Cancel</button>
+            <button onClick={() => { setShowCreate(false); setQueuedFiles([]); setForm(EMPTY_FORM); }} className="btn-secondary">Cancel</button>
           </div>
         </div>
       )}

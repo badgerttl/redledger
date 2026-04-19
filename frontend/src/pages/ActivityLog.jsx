@@ -14,18 +14,25 @@ export default function ActivityLog() {
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ action: '', target: '', phase: '', notes: '' });
   const [filterPhase, setFilterPhase] = useState('');
+  const [refresh, setRefresh] = useState(0);
+  const reload = () => setRefresh(r => r + 1);
 
-  const load = async () => {
-    try {
-      const params = { limit: 100 };
-      if (filterPhase) params.phase = filterPhase;
-      const { data } = await api.get(`/engagements/${id}/activity-log`, { params });
-      setLogs(data.items);
-      setTotal(data.total);
-    } catch { /* empty */ }
-  };
-
-  useEffect(() => { load(); }, [id, filterPhase]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const params = { limit: 100 };
+        if (filterPhase) params.phase = filterPhase;
+        const { data } = await api.get(`/engagements/${id}/activity-log`, { params, signal: controller.signal });
+        setLogs(data.items);
+        setTotal(data.total);
+      } catch (err) {
+        if (err.name !== 'CanceledError') toast.error(err.message);
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [id, filterPhase, refresh]);
 
   const handleCreate = async () => {
     if (!form.action.trim()) return toast.error('Action is required');
@@ -34,8 +41,8 @@ export default function ActivityLog() {
       toast.success('Log entry added');
       setShowCreate(false);
       setForm({ action: '', target: '', phase: '', notes: '' });
-      load();
-    } catch { toast.error('Failed to add entry'); }
+      reload();
+    } catch (err) { toast.error(err.message); }
   };
 
   return (

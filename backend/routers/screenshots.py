@@ -14,6 +14,9 @@ router = APIRouter(tags=["screenshots"])
 DATA_DIR = Path(os.environ.get("DATA_DIR", Path(__file__).resolve().parent.parent.parent / "data"))
 UPLOAD_DIR = DATA_DIR / "uploads"
 
+MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB
+ALLOWED_MIME_TYPES = {"image/png", "image/jpeg", "image/gif", "image/webp", "application/pdf"}
+
 
 def _serialize(s: Screenshot) -> dict:
     return {
@@ -33,13 +36,23 @@ async def _save_screenshot(
     asset_id: int | None = None,
     finding_id: int | None = None,
 ) -> Screenshot:
+    if file.content_type not in ALLOWED_MIME_TYPES:
+        raise HTTPException(415, f"Unsupported file type '{file.content_type}'. Allowed: image/png, image/jpeg, image/gif, image/webp, application/pdf")
+
+    content = await file.read()
+    if len(content) > MAX_UPLOAD_BYTES:
+        raise HTTPException(413, "File exceeds 50 MB limit")
+
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     ext = Path(file.filename).suffix if file.filename else ".png"
     stored_name = f"{uuid.uuid4().hex}{ext}"
     dest = UPLOAD_DIR / stored_name
-    content = await file.read()
-    with open(dest, "wb") as f:
-        f.write(content)
+    try:
+        with open(dest, "wb") as f:
+            f.write(content)
+    except OSError as e:
+        raise HTTPException(500, f"Failed to save file: {e}") from e
+
     sc = Screenshot(
         asset_id=asset_id,
         finding_id=finding_id,

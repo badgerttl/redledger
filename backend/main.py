@@ -1,4 +1,3 @@
-import json
 import os
 from pathlib import Path
 from contextlib import asynccontextmanager
@@ -7,41 +6,18 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.database import engine, Base, SessionLocal
-from backend.models import Scope, ChecklistItem, Engagement
+from backend.database import engine, Base
 
 from backend.routers import (
     engagements, scope, assets, notes, tool_output,
     screenshots, phases, findings, credentials,
-    checklists, activity_log, tags, assistant, nmap_import, reports,
+    checklists, activity_log, tags, assistant, nmap_import, burp_import, reports,
 )
 
 BASE_DIR = Path(__file__).resolve().parent
 DATA_DIR = Path(os.environ.get("DATA_DIR", BASE_DIR.parent / "data"))
 UPLOAD_DIR = DATA_DIR / "uploads"
 REPORT_DIR = DATA_DIR / "reports"
-
-
-def _seed_checklists(db, engagement_id: int):
-    """Clone default checklist items into a new engagement."""
-    checklist_path = BASE_DIR / "checklists" / "defaults.json"
-    if not checklist_path.exists():
-        return
-    with open(checklist_path) as f:
-        defaults = json.load(f)
-    order = 0
-    for phase_name, items in defaults.items():
-        for item in items:
-            db.add(ChecklistItem(
-                engagement_id=engagement_id,
-                phase=phase_name,
-                label=item.get("label", ""),
-                description=item.get("description", ""),
-                is_checked=False,
-                sort_order=order,
-            ))
-            order += 1
-    db.commit()
 
 
 @asynccontextmanager
@@ -76,6 +52,8 @@ app.include_router(activity_log.router, prefix="/api")
 app.include_router(tags.router, prefix="/api")
 app.include_router(assistant.router, prefix="/api")
 app.include_router(nmap_import.router, prefix="/api")
+app.include_router(burp_import.router, prefix="/api")
+
 app.include_router(reports.router, prefix="/api")
 
 FRONTEND_DIR = BASE_DIR.parent / "frontend" / "dist"

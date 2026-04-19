@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Penetration Test Report — {{ engagement.name }}</title>
+<style>
+  :root {
+    --accent: #6366f1;
+    --critical: #dc2626;
+    --high: #f97316;
+    --medium: #eab308;
+    --low: #22c55e;
+    --info: #94a3b8;
+    --text: #1e293b;
+    --muted: #64748b;
+    --border: #e2e8f0;
+    --bg: #ffffff;
+    --card: #f8fafc;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--text);
+    background: var(--bg);
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 48px;
+  }
+
+  /* Cover */
+  .cover {
+    text-align: center;
+    padding: 80px 0 60px;
+    border-bottom: 3px solid var(--accent);
+    margin-bottom: 48px;
+    page-break-after: always;
+  }
+  .cover h1 { font-size: 2.2rem; font-weight: 700; color: var(--text); margin-bottom: 12px; }
+  .cover .subtitle { font-size: 1rem; color: var(--muted); margin-bottom: 32px; }
+  .cover .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; text-align: left; max-width: 480px; margin: 0 auto; }
+  .cover .meta-item label { display: block; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); font-weight: 600; margin-bottom: 2px; }
+  .cover .meta-item span { font-size: 14px; font-weight: 500; }
+
+  /* Section headings */
+  h2 { font-size: 1.25rem; font-weight: 700; color: var(--text); margin: 40px 0 16px; padding-bottom: 8px; border-bottom: 2px solid var(--border); }
+  h3 { font-size: 1rem; font-weight: 600; color: var(--text); margin: 24px 0 10px; }
+  h4 { font-size: 0.875rem; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 16px 0 6px; }
+
+  p { margin-bottom: 12px; }
+  ul, ol { margin: 8px 0 12px 24px; }
+  li { margin-bottom: 4px; }
+
+  /* Summary stats */
+  .stats-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 12px; margin: 20px 0; }
+  .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 16px; text-align: center; }
+  .stat-card .count { font-size: 2rem; font-weight: 700; line-height: 1; }
+  .stat-card .label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-top: 4px; }
+  .stat-critical .count { color: var(--critical); }
+  .stat-high .count { color: var(--high); }
+  .stat-medium .count { color: var(--medium); }
+  .stat-low .count { color: var(--low); }
+  .stat-info .count { color: var(--info); }
+
+  /* Severity badge */
+  .badge {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .badge-critical { background: #fef2f2; color: var(--critical); }
+  .badge-high     { background: #fff7ed; color: var(--high); }
+  .badge-medium   { background: #fefce8; color: #a16207; }
+  .badge-low      { background: #f0fdf4; color: #15803d; }
+  .badge-info     { background: #f1f5f9; color: var(--muted); }
+
+  /* Finding cards */
+  .finding {
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 28px;
+    overflow: hidden;
+    page-break-inside: avoid;
+  }
+  .finding-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    background: var(--card);
+    border-bottom: 1px solid var(--border);
+  }
+  .finding-title { font-size: 1rem; font-weight: 600; flex: 1; }
+  .finding-meta { display: flex; gap: 16px; padding: 10px 18px; border-bottom: 1px solid var(--border); background: #fafafa; flex-wrap: wrap; }
+  .finding-meta-item { font-size: 12px; color: var(--muted); }
+  .finding-meta-item strong { color: var(--text); }
+  .finding-body { padding: 16px 18px; }
+  .finding-section { margin-bottom: 16px; }
+  .finding-section:last-child { margin-bottom: 0; }
+
+  /* Scope table */
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; background: var(--card); border-bottom: 2px solid var(--border); font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); font-weight: 600; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  .tag { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; background: #ede9fe; color: #5b21b6; font-family: monospace; }
+
+  /* Progress bar */
+  .progress-bar { background: var(--border); border-radius: 4px; height: 8px; margin: 8px 0; }
+  .progress-fill { height: 100%; border-radius: 4px; background: var(--accent); }
+
+  /* Print */
+  @media print {
+    body { padding: 20px 28px; max-width: 100%; }
+    .finding { page-break-inside: avoid; }
+    h2 { page-break-after: avoid; }
+  }
+
+  @page { margin: 20mm 18mm; }
+</style>
+</head>
+<body>
+
+<!-- Cover Page -->
+<div class="cover">
+  <h1>{{ engagement.name }}</h1>
+  <p class="subtitle">Penetration Test Report</p>
+  <div class="meta-grid">
+    <div class="meta-item">
+      <label>Client</label>
+      <span>{{ engagement.client_name or '—' }}</span>
+    </div>
+    <div class="meta-item">
+      <label>Contact</label>
+      <span>{{ engagement.client_contact or '—' }}</span>
+    </div>
+    <div class="meta-item">
+      <label>Start Date</label>
+      <span>{{ engagement.start_date or '—' }}</span>
+    </div>
+    <div class="meta-item">
+      <label>End Date</label>
+      <span>{{ engagement.end_date or '—' }}</span>
+    </div>
+    <div class="meta-item">
+      <label>Status</label>
+      <span>{{ engagement.status | capitalize }}</span>
+    </div>
+    <div class="meta-item">
+      <label>Total Findings</label>
+      <span>{{ findings | length }}</span>
+    </div>
+  </div>
+</div>
+
+<!-- Executive Summary -->
+<h2>Executive Summary</h2>
+<p>
+  This penetration test engagement identified <strong>{{ findings | length }}</strong> security finding(s).
+  {% if engagement.description %}{{ engagement.description }}{% endif %}
+</p>
+
+<div class="stats-grid">
+  <div class="stat-card stat-critical">
+    <div class="count">{{ severity_counts.get('Critical', 0) }}</div>
+    <div class="label">Critical</div>
+  </div>
+  <div class="stat-card stat-high">
+    <div class="count">{{ severity_counts.get('High', 0) }}</div>
+    <div class="label">High</div>
+  </div>
+  <div class="stat-card stat-medium">
+    <div class="count">{{ severity_counts.get('Medium', 0) }}</div>
+    <div class="label">Medium</div>
+  </div>
+  <div class="stat-card stat-low">
+    <div class="count">{{ severity_counts.get('Low', 0) }}</div>
+    <div class="label">Low</div>
+  </div>
+  <div class="stat-card stat-info">
+    <div class="count">{{ severity_counts.get('Info', 0) }}</div>
+    <div class="label">Info</div>
+  </div>
+</div>
+
+{% if total_checklist > 0 %}
+<p><strong>Methodology completion:</strong> {{ checked_checklist }}/{{ total_checklist }} checklist items completed.</p>
+<div class="progress-bar">
+  <div class="progress-fill" style="width: {{ ((checked_checklist / total_checklist) * 100) | round }}%"></div>
+</div>
+{% endif %}
+
+<!-- Scope -->
+<h2>Scope</h2>
+
+{% if scope %}
+<h3>In Scope</h3>
+<p style="white-space: pre-wrap;">{{ scope.in_scope or 'Not defined.' }}</p>
+
+<h3>Out of Scope</h3>
+<p style="white-space: pre-wrap;">{{ scope.out_scope or 'Not defined.' }}</p>
+{% else %}
+<p>Scope not defined.</p>
+{% endif %}
+
+{% if scope_entries %}
+<h3>Scope Entries</h3>
+<table>
+  <thead>
+    <tr><th>Type</th><th>Value</th></tr>
+  </thead>
+  <tbody>
+    {% for e in scope_entries %}
+    <tr>
+      <td><span class="tag">{{ e.entry_type }}</span></td>
+      <td>{{ e.value }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+{% if engagement.rules_of_engagement %}
+<h3>Rules of Engagement</h3>
+<p style="white-space: pre-wrap;">{{ engagement.rules_of_engagement }}</p>
+{% endif %}
+
+<!-- Findings -->
+<h2>Findings</h2>
+
+{% if findings %}
+{% for f in findings %}
+<div class="finding">
+  <div class="finding-header">
+    <span class="badge badge-{{ f.severity | lower }}">{{ f.severity }}</span>
+    <span class="finding-title">{{ f.title }}</span>
+  </div>
+  <div class="finding-meta">
+    {% if f.cvss_score is not none %}
+    <div class="finding-meta-item"><strong>CVSS:</strong> {{ f.cvss_score }}</div>
+    {% endif %}
+    {% if f.cvss_vector %}
+    <div class="finding-meta-item"><strong>Vector:</strong> <code>{{ f.cvss_vector }}</code></div>
+    {% endif %}
+    <div class="finding-meta-item"><strong>Status:</strong> {{ f.status | capitalize }}</div>
+    {% if f.phase %}
+    <div class="finding-meta-item"><strong>Phase:</strong> {{ f.phase }}</div>
+    {% endif %}
+    {% if f.affected_assets %}
+    <div class="finding-meta-item"><strong>Affected Assets:</strong> {{ f.affected_assets | map(attribute='name') | join(', ') }}</div>
+    {% endif %}
+  </div>
+  <div class="finding-body">
+    {% if f.description %}
+    <div class="finding-section">
+      <h4>Description</h4>
+      <p style="white-space: pre-wrap;">{{ f.description }}</p>
+    </div>
+    {% endif %}
+    {% if f.impact %}
+    <div class="finding-section">
+      <h4>Impact</h4>
+      <p style="white-space: pre-wrap;">{{ f.impact }}</p>
+    </div>
+    {% endif %}
+    {% if f.remediation %}
+    <div class="finding-section">
+      <h4>Remediation</h4>
+      <p style="white-space: pre-wrap;">{{ f.remediation }}</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<p>No findings recorded for this engagement.</p>
+{% endif %}
+
+</body>
+</html>

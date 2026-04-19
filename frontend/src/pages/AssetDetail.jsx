@@ -6,7 +6,9 @@ import MarkdownViewer from '../components/MarkdownViewer';
 import MarkdownEditor from '../components/MarkdownEditor';
 import TagBadge from '../components/TagBadge';
 import AttachmentGallery from '../components/AttachmentGallery';
-import { ArrowLeft, Plus, Trash2, StickyNote, Pencil, Check, X, Copy } from 'lucide-react';
+import SeverityBadge from '../components/SeverityBadge';
+import StatusBadge from '../components/StatusBadge';
+import { ArrowLeft, Plus, Trash2, StickyNote, Pencil, Check, X, Copy, ShieldAlert, KeyRound, Eye, EyeOff } from 'lucide-react';
 import ReconRecommendations from '../components/ReconRecommendations';
 
 const DEFAULT_TAG_COLORS = ['#6366f1', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
@@ -17,6 +19,9 @@ export default function AssetDetail() {
   const [asset, setAsset] = useState(null);
   const [notes, setNotes] = useState([]);
   const [screenshots, setScreenshots] = useState([]);
+  const [linkedFindings, setLinkedFindings] = useState([]);
+  const [linkedCredentials, setLinkedCredentials] = useState([]);
+  const [revealedCreds, setRevealedCreds] = useState({});
   const [newNote, setNewNote] = useState('');
   const [editingNote, setEditingNote] = useState(null);
   const [editingNoteBody, setEditingNoteBody] = useState('');
@@ -30,17 +35,23 @@ export default function AssetDetail() {
 
   const load = async () => {
     try {
-      const [a, n, s, t] = await Promise.all([
+      const [a, n, s, t, f, cr] = await Promise.all([
         api.get(`/assets/${assetId}`),
         api.get(`/assets/${assetId}/notes`),
         api.get(`/assets/${assetId}/screenshots`),
         api.get('/tags'),
+        api.get(`/assets/${assetId}/findings`),
+        api.get(`/assets/${assetId}/credentials`),
       ]);
       setAsset(a.data);
       setNotes(n.data);
       setScreenshots(s.data);
       setAllTags(t.data);
-    } catch { /* empty */ }
+      setLinkedFindings(f.data);
+      setLinkedCredentials(cr.data);
+    } catch (err) {
+      if (err.name !== 'CanceledError') toast.error(err.message);
+    }
   };
 
   useEffect(() => { load(); }, [assetId]);
@@ -56,7 +67,7 @@ export default function AssetDetail() {
       setEditingField(null);
       load();
       toast.success('Updated');
-    } catch { toast.error('Failed to update'); }
+    } catch (err) { toast.error(err.message); }
   };
 
   const cancelEditField = () => {
@@ -72,7 +83,7 @@ export default function AssetDetail() {
       setShowTagDropdown(false);
       load();
       toast.success('Tag added');
-    } catch { toast.error('Failed to add tag'); }
+    } catch (err) { toast.error(err.message); }
   };
 
   const removeTagFromAsset = async (tagId) => {
@@ -80,7 +91,7 @@ export default function AssetDetail() {
     try {
       await api.patch(`/assets/${assetId}`, { tag_ids: currentIds.filter(id => id !== tagId) });
       load();
-    } catch { toast.error('Failed to remove tag'); }
+    } catch (err) { toast.error(err.message); }
   };
 
   const createAndAddTag = async () => {
@@ -90,9 +101,7 @@ export default function AssetDetail() {
       setNewTagName('');
       setShowCreateTag(false);
       await addTagToAsset(data.id);
-    } catch (err) {
-      toast.error(err.response?.status === 409 ? 'Tag already exists' : 'Failed to create tag');
-    }
+    } catch (err) { toast.error(err.message); }
   };
 
   const addNote = async () => {
@@ -102,7 +111,7 @@ export default function AssetDetail() {
       setNewNote('');
       load();
       toast.success('Note added');
-    } catch { toast.error('Failed to add note'); }
+    } catch (err) { toast.error(err.message); }
   };
 
   const updateNote = async (noteId, body) => {
@@ -111,14 +120,14 @@ export default function AssetDetail() {
       setEditingNote(null);
       load();
       toast.success('Note updated');
-    } catch { toast.error('Failed to update note'); }
+    } catch (err) { toast.error(err.message); }
   };
 
   const deleteNote = async (noteId) => {
     try {
       await api.delete(`/notes/${noteId}`);
       load();
-    } catch { toast.error('Failed to delete'); }
+    } catch (err) { toast.error(err.message); }
   };
 
   const uploadFile = async (files) => {
@@ -131,14 +140,14 @@ export default function AssetDetail() {
       await api.post(`/assets/${assetId}/screenshots`, formData);
       load();
       toast.success('File uploaded');
-    } catch { toast.error('Upload failed'); }
+    } catch (err) { toast.error(err.message); }
   };
 
   const deleteFile = async (scId) => {
     try {
       await api.delete(`/screenshots/${scId}`);
       load();
-    } catch { toast.error('Failed to delete'); }
+    } catch (err) { toast.error(err.message); }
   };
 
   const copyTarget = async () => {
@@ -146,7 +155,7 @@ export default function AssetDetail() {
     try {
       await navigator.clipboard.writeText(asset.target);
       toast.success('Copied to clipboard');
-    } catch { toast.error('Failed to copy'); }
+    } catch { toast.error('Failed to copy to clipboard'); }
   };
 
   if (!asset) return <div className="text-text-muted">Loading...</div>;
@@ -312,6 +321,91 @@ export default function AssetDetail() {
       {asset.asset_type === 'host' && (
         <ReconRecommendations portsSummary={asset.ports_summary} target={asset.target} />
       )}
+
+      {/* Linked Findings */}
+      <div className="mb-6">
+        <h2 className="text-base font-medium mb-3 flex items-center gap-2">
+          <ShieldAlert className="w-4 h-4" /> Linked Findings
+        </h2>
+        {linkedFindings.length === 0 ? (
+          <p className="text-sm text-text-muted">No findings linked to this asset yet.</p>
+        ) : (
+          <div className="card p-0 overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Title</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Severity</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Status</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Phase</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linkedFindings.map((f) => (
+                  <tr
+                    key={f.id}
+                    className="table-row cursor-pointer"
+                    onClick={() => navigate(`/e/${id}/findings/${f.id}`)}
+                  >
+                    <td className="px-4 py-2.5 text-sm font-medium text-text-primary">{f.title}</td>
+                    <td className="px-4 py-2.5"><SeverityBadge severity={f.severity} /></td>
+                    <td className="px-4 py-2.5"><StatusBadge status={f.status} /></td>
+                    <td className="px-4 py-2.5 text-sm text-text-secondary">{f.phase || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Linked Credentials */}
+      <div className="mb-6">
+        <h2 className="text-base font-medium mb-3 flex items-center gap-2">
+          <KeyRound className="w-4 h-4" /> Linked Credentials
+        </h2>
+        {linkedCredentials.length === 0 ? (
+          <p className="text-sm text-text-muted">No credentials linked to this asset yet.</p>
+        ) : (
+          <div className="card p-0 overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Username</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Secret</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Type</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Access Level</th>
+                  <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Source</th>
+                </tr>
+              </thead>
+              <tbody>
+                {linkedCredentials.map((c) => (
+                  <tr key={c.id} className="table-row cursor-pointer" onClick={() => navigate(`/e/${id}/credentials/${c.id}`)}>
+                    <td className="px-4 py-2.5 text-sm font-mono text-text-primary">{c.username || '—'}</td>
+                    <td className="px-4 py-2.5 text-sm font-mono">
+                      <div className="flex items-center gap-2">
+                        <span className="text-text-secondary">{revealedCreds[c.id] ? c.secret : '••••••••'}</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setRevealedCreds(prev => ({ ...prev, [c.id]: !prev[c.id] })); }}
+                          className="text-text-muted hover:text-text-primary transition-colors"
+                          title={revealedCreds[c.id] ? 'Hide' : 'Reveal'}
+                        >
+                          {revealedCreds[c.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                        </button>
+                      </div>
+                    </td>
+                    <td className="px-4 py-2.5 text-sm">
+                      <span className="px-2 py-0.5 rounded text-xs bg-accent/10 text-accent">{c.secret_type}</span>
+                    </td>
+                    <td className="px-4 py-2.5 text-sm text-text-secondary">{c.access_level || '—'}</td>
+                    <td className="px-4 py-2.5 text-sm text-text-secondary">{c.source || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       <div className="grid grid-cols-2 gap-6">
         {/* Notes */}

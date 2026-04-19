@@ -122,12 +122,23 @@ const PORT_RECOMMENDATIONS = {
         ],
       },
       {
+        title: 'Subdomain enumeration',
+        commands: ['gobuster vhost -u http://{target} -w subdomains.txt'],
+      },
+      {
         title: 'Technology fingerprinting',
         commands: ['whatweb http://{target}', 'wappalyzer http://{target}'],
       },
       {
         title: 'Scan for common vulnerabilities',
-        commands: ['nikto -h http://{target}', 'nmap -p 80 --script=http-vuln-* {target}'],
+        commands: [
+          'nmap -p 443 --script=http-vuln-*,ssl-* {target}',
+          'nuclei -u https://{target} -as',
+          'nuclei -u https://{target} -t cves/',
+          'nuclei -u https://{target} -t exposures/',
+          'nuclei -u https://{target} -t misconfiguration/',
+          'nikto -h https://{target}'
+        ],
       },
       {
         title: 'Check for virtual hosts',
@@ -181,7 +192,14 @@ const PORT_RECOMMENDATIONS = {
       },
       {
         title: 'Scan for common vulnerabilities',
-        commands: ['nikto -h https://{target}', 'nmap -p 443 --script=http-vuln-*,ssl-* {target}'],
+        commands: [
+          'nmap -p 443 --script=http-vuln-*,ssl-* {target}',
+          'nuclei -u https://{target} -as',
+          'nuclei -u https://{target} -t cves/',
+          'nuclei -u https://{target} -t exposures/',
+          'nuclei -u https://{target} -t misconfiguration/',
+          'nikto -h https://{target}'
+        ],
       },
       {
         title: 'Check for virtual hosts',
@@ -576,7 +594,14 @@ const PORT_RECOMMENDATIONS = {
       },
       {
         title: 'Scan for common vulnerabilities',
-        commands: ['nikto -h http://{target}:8080'],
+        commands: [
+          'nmap -p 443 --script=http-vuln-*,ssl-* {target}',
+          'nuclei -u https://{target} -as',
+          'nuclei -u https://{target} -t cves/',
+          'nuclei -u https://{target} -t exposures/',
+          'nuclei -u https://{target} -t misconfiguration/',
+          'nikto -h https://{target}'
+        ],
       },
     ],
   },
@@ -591,6 +616,17 @@ const PORT_RECOMMENDATIONS = {
       {
         title: 'Directory brute-force',
         commands: ['gobuster dir -u https://{target}:8443 -w /usr/share/wordlists/dirb/common.txt -k'],
+      },
+      {
+        title: 'Scan for common vulnerabilities',
+        commands: [
+          'nmap -p 443 --script=http-vuln-*,ssl-* {target}',
+          'nuclei -u https://{target} -as',
+          'nuclei -u https://{target} -t cves/',
+          'nuclei -u https://{target} -t exposures/',
+          'nuclei -u https://{target} -t misconfiguration/',
+          'nikto -h https://{target}'
+        ],
       },
     ],
   },
@@ -855,8 +891,15 @@ const PORT_RECOMMENDATIONS = {
         commands: ['gobuster dir -u http://{target}:8000 -w /usr/share/wordlists/dirb/common.txt -x php,html,txt'],
       },
       {
-        title: 'Run Nuclei',
-        commands: ['nuclei -u http://{target}:8000 -as'],
+        title: 'Scan for common vulnerabilities',
+        commands: [
+          'nmap -p 443 --script=http-vuln-*,ssl-* {target}',
+          'nuclei -u https://{target} -as',
+          'nuclei -u https://{target} -t cves/',
+          'nuclei -u https://{target} -t exposures/',
+          'nuclei -u https://{target} -t misconfiguration/',
+          'nikto -h https://{target}'
+        ],
       },
     ],
   },

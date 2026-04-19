@@ -1,5 +1,3 @@
-import json
-from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -7,11 +5,10 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import Engagement, Scope, ChecklistItem
+from backend.models import Engagement, Scope
+from backend.utils import seed_checklists
 
 router = APIRouter(tags=["engagements"])
-
-CHECKLIST_PATH = Path(__file__).resolve().parent.parent / "checklists" / "defaults.json"
 
 
 class EngagementCreate(BaseModel):
@@ -33,26 +30,6 @@ class EngagementUpdate(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     rules_of_engagement: Optional[str] = None
-
-
-def _seed_checklists(db: Session, engagement_id: int):
-    if not CHECKLIST_PATH.exists():
-        return
-    with open(CHECKLIST_PATH) as f:
-        defaults = json.load(f)
-    order = 0
-    for phase_name, items in defaults.items():
-        for item in items:
-            db.add(ChecklistItem(
-                engagement_id=engagement_id,
-                phase=phase_name,
-                label=item.get("label", ""),
-                description=item.get("description", ""),
-                is_checked=False,
-                sort_order=order,
-            ))
-            order += 1
-    db.commit()
 
 
 def _serialize(e: Engagement) -> dict:
@@ -85,7 +62,7 @@ def create_engagement(body: EngagementCreate, db: Session = Depends(get_db)):
     db.add(Scope(engagement_id=eng.id, in_scope="", out_scope=""))
     db.commit()
     db.refresh(eng)
-    _seed_checklists(db, eng.id)
+    seed_checklists(db, eng.id)
     return _serialize(eng)
 
 

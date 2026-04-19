@@ -1,0 +1,167 @@
+[
+  {
+    "id": "sql-injection",
+    "title": "SQL Injection",
+    "severity": "High",
+    "cvss_score": 8.8,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "phase": "Exploitation",
+    "description": "The application is vulnerable to SQL injection. User-supplied input is incorporated into SQL queries without adequate sanitisation or parameterisation, allowing an attacker to manipulate the query logic.\n\n**Affected parameter(s):** [to be completed]\n\n**Evidence:** [attach screenshot / request-response pair]",
+    "impact": "An attacker can read arbitrary data from the database (including credentials and sensitive records), modify or delete data, execute administrative operations, and in some configurations achieve remote code execution via database features such as `xp_cmdshell`.",
+    "remediation": "- Use parameterised queries / prepared statements for all database interactions.\n- Apply an allowlist-based input validation approach.\n- Follow the principle of least privilege for database accounts.\n- Deploy a WAF as a defence-in-depth measure.\n\nReference: [OWASP SQL Injection Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html)"
+  },
+  {
+    "id": "stored-xss",
+    "title": "Stored Cross-Site Scripting (XSS)",
+    "severity": "High",
+    "cvss_score": 8.2,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:L/UI:R/S:C/C:H/I:L/A:N",
+    "phase": "Exploitation",
+    "description": "The application stores and subsequently reflects attacker-controlled data without sufficient encoding. A malicious script injected by one user is executed in the browser of every other user who views the affected content.\n\n**Injection point:** [to be completed]\n\n**Payload used:** [to be completed]",
+    "impact": "An attacker can hijack authenticated sessions, capture credentials via keyloggers, perform actions on behalf of victims, deface content visible to users, or redirect users to malicious sites.",
+    "remediation": "- HTML-encode all output that originates from user input.\n- Implement a strict Content Security Policy (CSP).\n- Use framework-provided templating that auto-escapes by default.\n- Apply `HttpOnly` and `Secure` flags to session cookies.\n\nReference: [OWASP XSS Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html)"
+  },
+  {
+    "id": "reflected-xss",
+    "title": "Reflected Cross-Site Scripting (XSS)",
+    "severity": "Medium",
+    "cvss_score": 6.1,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+    "phase": "Exploitation",
+    "description": "The application reflects unsanitised user input in HTTP responses. An attacker can craft a malicious URL that, when visited by a victim, executes arbitrary JavaScript in the victim's browser.\n\n**Affected parameter:** [to be completed]\n\n**Payload:** [to be completed]",
+    "impact": "Session hijacking, credential theft, phishing, or forced actions on behalf of the victim within the application.",
+    "remediation": "- Encode all user-supplied data before including it in HTML responses.\n- Implement a Content Security Policy (CSP) header.\n- Validate and reject input containing characters such as `<`, `>`, `\"`, `'`, and `/`.\n\nReference: [OWASP XSS Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html)"
+  },
+  {
+    "id": "ssrf",
+    "title": "Server-Side Request Forgery (SSRF)",
+    "severity": "High",
+    "cvss_score": 8.6,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:C/C:H/I:N/A:N",
+    "phase": "Exploitation",
+    "description": "The application accepts user-supplied URLs and issues server-side HTTP requests to those URLs without adequate validation. An attacker can force the server to make requests to internal services or cloud metadata endpoints that are not accessible from the internet.\n\n**Affected endpoint:** [to be completed]\n\n**Evidence:** [e.g., accessed http://169.254.169.254/latest/meta-data/]",
+    "impact": "An attacker can access internal services (databases, admin panels, AWS metadata), perform port scanning of internal networks, exfiltrate cloud credentials, and potentially pivot to internal systems.",
+    "remediation": "- Validate and allowlist URLs against a set of permitted destinations.\n- Block requests to RFC-1918 and link-local addresses (`10.x`, `172.16-31.x`, `192.168.x`, `169.254.x`).\n- Use a separate egress proxy with strict filtering.\n- Disable URL redirects when making server-side requests.\n\nReference: [OWASP SSRF Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html)"
+  },
+  {
+    "id": "xxe",
+    "title": "XML External Entity (XXE) Injection",
+    "severity": "High",
+    "cvss_score": 8.2,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:L/A:N",
+    "phase": "Exploitation",
+    "description": "The application processes XML input with external entity resolution enabled. An attacker can define external entities that reference local files or internal network resources, causing the server to disclose their contents.\n\n**Affected endpoint:** [to be completed]\n\n**Payload used:** [to be completed]",
+    "impact": "Local file disclosure (e.g., `/etc/passwd`, application configuration, private keys), SSRF to internal services, and in some cases denial of service via billion-laughs attacks.",
+    "remediation": "- Disable external entity processing in the XML parser (`FEATURE_SECURE_PROCESSING`).\n- Use a less complex data format (JSON) where XML is not required.\n- Validate and sanitise all XML input.\n\nReference: [OWASP XXE Prevention Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/XML_External_Entity_Prevention_Cheat_Sheet.html)"
+  },
+  {
+    "id": "command-injection",
+    "title": "OS Command Injection",
+    "severity": "Critical",
+    "cvss_score": 9.8,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "phase": "Exploitation",
+    "description": "The application passes user-controlled input to a system shell command without adequate sanitisation, enabling an attacker to inject and execute arbitrary operating system commands.\n\n**Affected parameter:** [to be completed]\n\n**Evidence:** [e.g., `; id` returned `uid=33(www-data)`]",
+    "impact": "Full compromise of the server — arbitrary command execution, data exfiltration, installation of backdoors, lateral movement within the internal network.",
+    "remediation": "- Avoid calling OS commands from application code; use native library equivalents instead.\n- If OS commands are necessary, use a parameterised API (e.g., `subprocess` with a list, not a shell string) and never pass user input directly.\n- Validate input against a strict allowlist before use in any shell context.\n\nReference: [OWASP Command Injection](https://owasp.org/www-community/attacks/Command_Injection)"
+  },
+  {
+    "id": "idor",
+    "title": "Insecure Direct Object Reference (IDOR)",
+    "severity": "High",
+    "cvss_score": 7.5,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+    "phase": "Exploitation",
+    "description": "The application uses predictable identifiers (IDs) in API requests and does not verify that the requesting user has authorisation to access the referenced object. An attacker can enumerate IDs to access or modify other users' data.\n\n**Affected endpoint:** [to be completed]\n\n**Evidence:** [e.g., changing `user_id=123` to `user_id=124` returned another user's data]",
+    "impact": "Unauthorised access to sensitive data belonging to other users, potential data modification or deletion, and privilege escalation.",
+    "remediation": "- Implement authorisation checks on every resource access, verifying the requesting user owns or has permission for the requested object.\n- Use non-sequential, unpredictable identifiers (UUIDs) rather than sequential integers.\n- Apply access control at the data layer, not only the UI layer."
+  },
+  {
+    "id": "broken-auth",
+    "title": "Broken Authentication",
+    "severity": "High",
+    "cvss_score": 8.1,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "phase": "Exploitation",
+    "description": "The application's authentication mechanism has a weakness that allows an attacker to compromise authentication tokens, passwords, or session identifiers.\n\n**Weakness identified:** [e.g., no account lockout / weak session tokens / password reset flaw]\n\n**Evidence:** [to be completed]",
+    "impact": "Account takeover, access to sensitive data, impersonation of users or administrators.",
+    "remediation": "- Implement multi-factor authentication for all privileged accounts.\n- Enforce strong password policies and account lockout after repeated failed attempts.\n- Use cryptographically random, long session tokens and invalidate them on logout.\n- Ensure password reset flows are rate-limited and token-based with short expiry.\n\nReference: [OWASP Authentication Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html)"
+  },
+  {
+    "id": "default-credentials",
+    "title": "Default Credentials",
+    "severity": "Critical",
+    "cvss_score": 9.8,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+    "phase": "Exploitation",
+    "description": "The service is accessible using default or vendor-supplied credentials that have not been changed from their initial configuration.\n\n**Service:** [to be completed]\n\n**Credentials used:** [to be completed]",
+    "impact": "Full administrative access to the affected service, potential for lateral movement or data exfiltration.",
+    "remediation": "- Change all default credentials before deployment.\n- Implement a configuration checklist as part of the build/deployment process.\n- Conduct regular credential audits for internet-facing and internal services."
+  },
+  {
+    "id": "directory-traversal",
+    "title": "Directory / Path Traversal",
+    "severity": "High",
+    "cvss_score": 7.5,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+    "phase": "Exploitation",
+    "description": "The application allows user-controlled input to be used in file path construction without adequate sanitisation, enabling an attacker to traverse outside the intended directory and read arbitrary files.\n\n**Affected parameter:** [to be completed]\n\n**Evidence:** [e.g., `../../../../etc/passwd` returned file contents]",
+    "impact": "Disclosure of sensitive files including configuration files, private keys, source code, and system files such as `/etc/passwd` or `web.config`.",
+    "remediation": "- Canonicalise file paths and verify they fall within the allowed base directory before opening.\n- Reject path separators (`../`, `..\\`) in user input.\n- Use a file allowlist rather than constructing paths from user input."
+  },
+  {
+    "id": "open-redirect",
+    "title": "Open Redirect",
+    "severity": "Medium",
+    "cvss_score": 6.1,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+    "phase": "Exploitation",
+    "description": "The application accepts a user-controlled URL as a redirect destination without validating that it points to an allowed domain. An attacker can craft a link that appears to originate from the trusted domain but redirects victims to an attacker-controlled site.\n\n**Affected parameter:** [to be completed]",
+    "impact": "Phishing attacks, credential harvesting, OAuth token theft via redirect_uri manipulation.",
+    "remediation": "- Maintain an allowlist of permitted redirect destinations.\n- Avoid including user-controlled data in redirect URLs.\n- Warn users when redirecting to an external domain."
+  },
+  {
+    "id": "weak-tls",
+    "title": "Weak TLS Configuration",
+    "severity": "Medium",
+    "cvss_score": 5.9,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:N/S:U/C:H/I:N/A:N",
+    "phase": "Scanning and Enumeration",
+    "description": "The server supports deprecated TLS protocol versions or weak cipher suites.\n\n**Findings:** [e.g., TLS 1.0/1.1 enabled, RC4 or 3DES cipher suites supported]\n\n**Tool output:** [attach testssl.sh or sslyze output]",
+    "impact": "An attacker in a network-adjacent position may be able to intercept and decrypt TLS traffic using known attacks such as BEAST, POODLE, or SWEET32.",
+    "remediation": "- Disable TLS 1.0 and 1.1; require TLS 1.2 minimum, prefer TLS 1.3.\n- Remove support for weak cipher suites (RC4, 3DES, NULL, EXPORT, anon).\n- Enable HSTS with an appropriate max-age.\n- Renew certificates using SHA-256 or stronger."
+  },
+  {
+    "id": "exposed-admin",
+    "title": "Exposed Administrative Interface",
+    "severity": "Medium",
+    "cvss_score": 7.2,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:H/UI:N/S:U/C:H/I:H/A:H",
+    "phase": "Reconnaissance",
+    "description": "An administrative or management interface is accessible from the internet without additional network-level controls.\n\n**URL / Port:** [to be completed]\n\n**Interface:** [e.g., Tomcat Manager, phpMyAdmin, Kubernetes Dashboard]",
+    "impact": "Brute-force or credential-stuffing attacks against the admin interface, exploitation of unpatched vulnerabilities in the management software.",
+    "remediation": "- Restrict access to administrative interfaces by IP allowlist or VPN.\n- Place management interfaces on a separate internal network segment.\n- Enforce MFA for all administrative accounts.\n- Keep management software up to date and monitor for CVEs."
+  },
+  {
+    "id": "missing-rate-limiting",
+    "title": "Missing Rate Limiting",
+    "severity": "Medium",
+    "cvss_score": 5.3,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:L/I:N/A:N",
+    "phase": "Exploitation",
+    "description": "The application does not enforce rate limits on a sensitive endpoint, allowing an attacker to make an unlimited number of requests. This enables brute-force attacks against credentials, OTP codes, or other secret values.\n\n**Affected endpoint:** [to be completed]",
+    "impact": "Brute-force of passwords, PINs, or OTP codes; enumeration of valid usernames or email addresses; resource exhaustion.",
+    "remediation": "- Implement rate limiting on all authentication, password-reset, and sensitive API endpoints.\n- Apply progressive delays or CAPTCHA after repeated failed attempts.\n- Lock accounts temporarily after a configurable number of failures."
+  },
+  {
+    "id": "sensitive-data-exposure",
+    "title": "Sensitive Data Exposure",
+    "severity": "High",
+    "cvss_score": 7.5,
+    "cvss_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N",
+    "phase": "Reconnaissance",
+    "description": "The application discloses sensitive information that should not be accessible to unauthenticated or unauthorised users.\n\n**Information disclosed:** [e.g., API keys in JavaScript, stack traces, PII in API responses, credentials in git history]\n\n**Location:** [to be completed]",
+    "impact": "Disclosure of credentials, internal architecture details, PII, or other sensitive data that can facilitate further attacks.",
+    "remediation": "- Remove all debug output, stack traces, and verbose error messages from production responses.\n- Audit source code and repository history for committed secrets; rotate any exposed credentials immediately.\n- Apply the principle of least privilege — return only the data required by each API consumer.\n- Use a secrets management tool (Vault, AWS Secrets Manager) rather than storing credentials in code or configuration files."
+  }
+]

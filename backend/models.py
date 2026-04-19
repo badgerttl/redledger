@@ -43,6 +43,12 @@ note_tag = Table(
     Column("tag_id", Integer, ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True),
 )
 
+credential_asset = Table(
+    "credential_asset", Base.metadata,
+    Column("credential_id", Integer, ForeignKey("credentials.id", ondelete="CASCADE"), primary_key=True),
+    Column("asset_id", Integer, ForeignKey("assets.id", ondelete="CASCADE"), primary_key=True),
+)
+
 
 def _utcnow():
     return datetime.datetime.utcnow()
@@ -179,6 +185,7 @@ class Finding(Base):
     cvss_vector = Column(String(255), default="")
     status = Column(String(20), default="draft")  # draft, confirmed, reported, remediated
     phase = Column(String(50), default="")
+    references = Column(Text, default="")
     created_at = Column(DateTime, default=_utcnow)
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
@@ -195,7 +202,6 @@ class Credential(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     engagement_id = Column(Integer, ForeignKey("engagements.id", ondelete="CASCADE"), nullable=False)
-    asset_id = Column(Integer, ForeignKey("assets.id", ondelete="SET NULL"), nullable=True)
     username = Column(String(255), default="")
     secret = Column(String(500), default="")
     secret_type = Column(String(20), default="plaintext")  # plaintext, ntlm, sha256, other
@@ -205,7 +211,7 @@ class Credential(Base):
     created_at = Column(DateTime, default=_utcnow)
 
     engagement = relationship("Engagement", back_populates="credentials")
-    asset = relationship("Asset")
+    assets = relationship("Asset", secondary="credential_asset")
 
 
 class ChecklistItem(Base):

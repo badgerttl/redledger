@@ -1,13 +1,25 @@
+import json
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from pydantic import BaseModel, field_validator
+from sqlalchemy.orm import Session, selectinload
 
 from backend.database import get_db
 from backend.models import Finding, Engagement, Asset, Tag, ToolOutput
 
 router = APIRouter(tags=["findings"])
+
+_TEMPLATES_PATH = Path(__file__).resolve().parent.parent / "finding_templates.json"
+
+
+@router.get("/finding-templates")
+def list_finding_templates():
+    if not _TEMPLATES_PATH.exists():
+        return []
+    with open(_TEMPLATES_PATH) as f:
+        return json.load(f)
 
 
 class FindingCreate(BaseModel):
@@ -15,6 +27,7 @@ class FindingCreate(BaseModel):
     description: str = ""
     impact: str = ""
     remediation: str = ""
+    references: str = ""
     severity: str = "Info"
     cvss_score: Optional[float] = None
     cvss_vector: str = ""
@@ -23,12 +36,20 @@ class FindingCreate(BaseModel):
     asset_ids: list[int] = []
     tool_output_ids: list[int] = []
 
+    @field_validator('cvss_score')
+    @classmethod
+    def validate_cvss(cls, v):
+        if v is not None and not (0.0 <= v <= 10.0):
+            raise ValueError('CVSS score must be between 0.0 and 10.0')
+        return v
+
 
 class FindingUpdate(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     impact: Optional[str] = None
     remediation: Optional[str] = None
+    references: Optional[str] = None
     severity: Optional[str] = None
     cvss_score: Optional[float] = None
     cvss_vector: Optional[str] = None
@@ -37,6 +58,13 @@ class FindingUpdate(BaseModel):
     asset_ids: Optional[list[int]] = None
     tool_output_ids: Optional[list[int]] = None
     tag_ids: Optional[list[int]] = None
+
+    @field_validator('cvss_score')
+    @classmethod
+    def validate_cvss(cls, v):
+        if v is not None and not (0.0 <= v <= 10.0):
+            raise ValueError('CVSS score must be between 0.0 and 10.0')
+        return v
 
 
 def _serialize(f: Finding) -> dict:
@@ -47,6 +75,7 @@ def _serialize(f: Finding) -> dict:
         "description": f.description,
         "impact": f.impact,
         "remediation": f.remediation,
+        "references": f.references or "",
         "severity": f.severity,
         "cvss_score": f.cvss_score,
         "cvss_vector": f.cvss_vector,
@@ -69,7 +98,12 @@ def list_findings(
     phase: Optional[str] = Query(None),
     db: Session = Depends(get_db),
 ):
-    q = db.query(Finding).filter(Finding.engagement_id == engagement_id)
+    q = db.query(Finding).filter(Finding.engagement_id == engagement_id).options(
+        selectinload(Finding.affected_assets),
+        selectinload(Finding.linked_tool_outputs),
+        selectinload(Finding.screenshots),
+        selectinload(Finding.tags),
+    )
     if severity:
         q = q.filter(Finding.severity == severity)
     if status:
@@ -125,6 +159,22 @@ def update_finding(finding_id: int, body: FindingUpdate, db: Session = Depends(g
     db.commit()
     db.refresh(f)
     return _serialize(f)
+
+
+@router.get("/assets/{asset_id}/findings")
+def list_findings_for_asset(asset_id: int, db: Session = Depends(get_db)):
+    """Return all findings linked to a specific asset."""
+    asset = db.query(Asset).filter(Asset.id == asset_id).options(
+        selectinload(Asset.findings).options(
+            selectinload(Finding.affected_assets),
+            selectinload(Finding.linked_tool_outputs),
+            selectinload(Finding.screenshots),
+            selectinload(Finding.tags),
+        )
+    ).first()
+    if not asset:
+        raise HTTPException(404, "Asset not found")
+    return [_serialize(f) for f in sorted(asset.findings, key=lambda f: f.created_at or "", reverse=True)]
 
 
 @router.delete("/findings/{finding_id}", status_code=204)

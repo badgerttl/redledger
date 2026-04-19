@@ -9,21 +9,28 @@ export default function Checklists() {
   const { id } = useParams();
   const [checklists, setChecklists] = useState({});
   const [collapsed, setCollapsed] = useState({});
+  const [refresh, setRefresh] = useState(0);
+  const reload = () => setRefresh(r => r + 1);
 
-  const load = async () => {
-    try {
-      const { data } = await api.get(`/engagements/${id}/checklists`);
-      setChecklists(data);
-    } catch { /* empty */ }
-  };
-
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const { data } = await api.get(`/engagements/${id}/checklists`, { signal: controller.signal });
+        setChecklists(data);
+      } catch (err) {
+        if (err.name !== 'CanceledError') toast.error(err.message);
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [id, refresh]);
 
   const toggle = async (itemId, checked) => {
     try {
       await api.patch(`/checklists/${itemId}`, { is_checked: checked });
-      load();
-    } catch { toast.error('Failed to update'); }
+      reload();
+    } catch (err) { toast.error(err.message); }
   };
 
   const phases = Object.keys(checklists);

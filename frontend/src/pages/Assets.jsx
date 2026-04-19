@@ -74,15 +74,22 @@ export default function Assets() {
   const [form, setForm] = useState({ name: '', asset_type: 'host', target: '', os: '' });
   const [filter, setFilter] = useState('all');
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const [refresh, setRefresh] = useState(0);
+  const reload = () => setRefresh(r => r + 1);
 
-  const load = async () => {
-    try {
-      const { data } = await api.get(`/engagements/${id}/assets`);
-      setAssets(data);
-    } catch { /* empty */ }
-  };
-
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const { data } = await api.get(`/engagements/${id}/assets`, { signal: controller.signal });
+        setAssets(data);
+      } catch (err) {
+        if (err.name !== 'CanceledError') toast.error(err.message);
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [id, refresh]);
 
   const handleCreate = async () => {
     if (!form.name.trim()) return toast.error('Name is required');
@@ -91,8 +98,8 @@ export default function Assets() {
       toast.success('Asset created');
       setShowCreate(false);
       setForm({ name: '', asset_type: 'host', target: '', os: '' });
-      load();
-    } catch { toast.error('Failed to create asset'); }
+      reload();
+    } catch (err) { toast.error(err.message); }
   };
 
   const confirmDelete = async (assetId) => {
@@ -100,8 +107,8 @@ export default function Assets() {
       await api.delete(`/assets/${assetId}`);
       toast.success('Deleted');
       setDeleteTarget(null);
-      load();
-    } catch { toast.error('Failed to delete'); }
+      reload();
+    } catch (err) { toast.error(err.message); }
   };
 
   const copyTarget = async (e, target) => {

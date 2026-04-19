@@ -2,7 +2,7 @@ from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from backend.database import get_db
 from backend.models import Asset, Engagement, Tag
@@ -44,7 +44,9 @@ def _serialize(a: Asset) -> dict:
 
 @router.get("/engagements/{engagement_id}/assets")
 def list_assets(engagement_id: int, db: Session = Depends(get_db)):
-    return [_serialize(a) for a in db.query(Asset).filter(Asset.engagement_id == engagement_id).order_by(Asset.created_at.desc()).all()]
+    return [_serialize(a) for a in db.query(Asset).filter(Asset.engagement_id == engagement_id).options(
+        selectinload(Asset.tags),
+    ).order_by(Asset.created_at.desc()).all()]
 
 
 @router.post("/engagements/{engagement_id}/assets", status_code=201)

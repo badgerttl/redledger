@@ -3,31 +3,39 @@ import { useParams } from 'react-router-dom';
 import api from '../api/client';
 import toast from 'react-hot-toast';
 import { Plus, Trash2 } from 'lucide-react';
+import MarkdownEditor from '../components/MarkdownEditor';
 
 export default function Scope() {
   const { id } = useParams();
   const [scope, setScope] = useState({ in_scope: '', out_scope: '' });
   const [entries, setEntries] = useState([]);
   const [newEntry, setNewEntry] = useState({ entry_type: 'domain', value: '' });
+  const [refresh, setRefresh] = useState(0);
+  const reload = () => setRefresh(r => r + 1);
 
-  const load = async () => {
-    try {
-      const [s, e] = await Promise.all([
-        api.get(`/engagements/${id}/scope`),
-        api.get(`/engagements/${id}/scope-entries`),
-      ]);
-      setScope(s.data);
-      setEntries(e.data);
-    } catch { /* empty */ }
-  };
-
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const [s, e] = await Promise.all([
+          api.get(`/engagements/${id}/scope`, { signal: controller.signal }),
+          api.get(`/engagements/${id}/scope-entries`, { signal: controller.signal }),
+        ]);
+        setScope(s.data);
+        setEntries(e.data);
+      } catch (err) {
+        if (err.name !== 'CanceledError') toast.error(err.message);
+      }
+    };
+    load();
+    return () => controller.abort();
+  }, [id, refresh]);
 
   const saveScope = async () => {
     try {
       await api.put(`/engagements/${id}/scope`, { in_scope: scope.in_scope, out_scope: scope.out_scope });
       toast.success('Scope saved');
-    } catch { toast.error('Failed to save scope'); }
+    } catch (err) { toast.error(err.message); }
   };
 
   const addEntry = async () => {
@@ -35,16 +43,16 @@ export default function Scope() {
     try {
       await api.post(`/engagements/${id}/scope-entries`, newEntry);
       setNewEntry({ ...newEntry, value: '' });
-      load();
+      reload();
       toast.success('Entry added');
-    } catch { toast.error('Failed to add entry'); }
+    } catch (err) { toast.error(err.message); }
   };
 
   const deleteEntry = async (entryId) => {
     try {
       await api.delete(`/scope-entries/${entryId}`);
-      load();
-    } catch { toast.error('Failed to delete'); }
+      reload();
+    } catch (err) { toast.error(err.message); }
   };
 
   return (
@@ -56,21 +64,21 @@ export default function Scope() {
 
       <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="card">
-          <label className="label">In Scope</label>
-          <textarea
-            className="textarea min-h-[200px]"
-            placeholder="Define what is in scope for this engagement..."
+          <label className="label mb-2 block">In Scope</label>
+          <MarkdownEditor
             value={scope.in_scope}
-            onChange={(e) => setScope({ ...scope, in_scope: e.target.value })}
+            onChange={(v) => setScope({ ...scope, in_scope: v })}
+            placeholder="Define what is in scope for this engagement..."
+            minHeight="180px"
           />
         </div>
         <div className="card">
-          <label className="label">Out of Scope</label>
-          <textarea
-            className="textarea min-h-[200px]"
-            placeholder="Define what is out of scope..."
+          <label className="label mb-2 block">Out of Scope</label>
+          <MarkdownEditor
             value={scope.out_scope}
-            onChange={(e) => setScope({ ...scope, out_scope: e.target.value })}
+            onChange={(v) => setScope({ ...scope, out_scope: v })}
+            placeholder="Define what is out of scope..."
+            minHeight="180px"
           />
         </div>
       </div>

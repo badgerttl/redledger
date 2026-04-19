@@ -12,6 +12,7 @@ import {
   getAssistantContextLimitOverrideOrNull,
   getEffectiveAssistantContextLimit,
   readSystemPromptForEstimate,
+  pruneMessagesToFit,
 } from '../assistant/contextUsage';
 import { ASSISTANT_MODEL_STORAGE_KEY, ASSISTANT_SYSTEM_STORAGE_KEY } from '../assistant/storageKeys';
 import { loadAssistantMessages, saveAssistantMessages } from '../assistant/messagesStorage';
@@ -53,21 +54,56 @@ function parseSseLines(buffer) {
 }
 
 /**
- * Plain text for the current selection. `Selection#toString()` is often empty or wrong inside
- * `<pre><code>` (fenced blocks); cloning the range preserves newlines and code content.
+ * Walk a DOM node and reconstruct markdown syntax.
+ * Preserves headings, bold, italic, code, lists, blockquotes, links.
  */
-function plainTextFromSelection(sel) {
+function domNodeToMarkdown(node, inPre = false) {
+  if (node.nodeType === Node.TEXT_NODE) return node.textContent ?? '';
+  if (node.nodeType !== Node.ELEMENT_NODE) return '';
+  const tag = node.tagName.toLowerCase();
+  const kids = (pre) => [...node.childNodes].map((c) => domNodeToMarkdown(c, pre ?? inPre)).join('');
+  switch (tag) {
+    case 'h1': return `# ${kids()}\n\n`;
+    case 'h2': return `## ${kids()}\n\n`;
+    case 'h3': return `### ${kids()}\n\n`;
+    case 'h4': return `#### ${kids()}\n\n`;
+    case 'h5': return `##### ${kids()}\n\n`;
+    case 'h6': return `###### ${kids()}\n\n`;
+    case 'strong': case 'b': return `**${kids()}**`;
+    case 'em': case 'i': return `*${kids()}*`;
+    case 'code': return inPre ? kids(true) : `\`${kids()}\``;
+    case 'pre': {
+      const codeEl = node.querySelector('code');
+      const lang = codeEl?.className?.match(/language-(\w+)/)?.[1] ?? '';
+      const code = (codeEl ?? node).textContent ?? '';
+      return `\`\`\`${lang}\n${code}\n\`\`\`\n\n`;
+    }
+    case 'ul': return `${kids()}\n`;
+    case 'ol': return `${kids()}\n`;
+    case 'li': return `- ${kids()}\n`;
+    case 'p': return `${kids()}\n\n`;
+    case 'br': return '\n';
+    case 'a': return `[${kids()}](${node.getAttribute('href') ?? ''})`;
+    case 'blockquote': return kids().split('\n').map((l) => `> ${l}`).join('\n') + '\n\n';
+    default: return kids();
+  }
+}
+
+/**
+ * Extract markdown (not plain text) from the current selection.
+ * Clones the selected DOM fragment and reconstructs markdown syntax,
+ * so **bold**, `code`, headings etc. survive the round-trip.
+ */
+function markdownFromSelection(sel) {
   if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return '';
   const parts = [];
   for (let i = 0; i < sel.rangeCount; i++) {
-    const range = sel.getRangeAt(i);
-    const frag = range.cloneContents();
-    const div = document.createElement('div');
-    div.appendChild(frag);
-    const block = div.innerText;
-    parts.push(block || div.textContent || '');
+    const frag = sel.getRangeAt(i).cloneContents();
+    const wrap = document.createElement('div');
+    wrap.appendChild(frag);
+    parts.push(domNodeToMarkdown(wrap));
   }
-  return parts.join('\n');
+  return parts.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 /** Whether every range of the selection lies entirely inside `root` (works for backwards selection & code blocks). */
@@ -201,7 +237,7 @@ export default function Assistant() {
           setNoteSelectionUi(null);
           return;
         }
-        const text = plainTextFromSelection(sel);
+        const text = markdownFromSelection(sel);
         if (!text.trim()) {
           setNoteSelectionUi(null);
           return;
@@ -277,11 +313,14 @@ export default function Assistant() {
     setMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
 
     const systemText = localStorage.getItem(ASSISTANT_SYSTEM_STORAGE_KEY)?.trim() || '';
+    const contextLimit = getEffectiveAssistantContextLimit(selectedModelMeta);
+    const { pruned, trimmed } = pruneMessagesToFit(nextMessages, systemText, contextLimit);
+    if (trimmed) toast('Context trimmed — oldest messages removed to fit token budget', { icon: '✂️' });
     const apiMessages = [];
     if (systemText) {
       apiMessages.push({ role: 'system', content: systemText });
     }
-    apiMessages.push(...nextMessages.map(({ role, content }) => ({ role, content })));
+    apiMessages.push(...pruned.map(({ role, content }) => ({ role, content })));
 
     const ac = new AbortController();
     chatAbortRef.current = ac;
