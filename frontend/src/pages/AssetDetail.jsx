@@ -23,6 +23,8 @@ export default function AssetDetail() {
   const [linkedCredentials, setLinkedCredentials] = useState([]);
   const [revealedCreds, setRevealedCreds] = useState({});
   const [newNote, setNewNote] = useState('');
+  /** Bumps after successful add so TipTap composer remounts empty (controlled reset). */
+  const [newNoteEditorKey, setNewNoteEditorKey] = useState(0);
   const [editingNote, setEditingNote] = useState(null);
   const [editingNoteBody, setEditingNoteBody] = useState('');
   const [editingField, setEditingField] = useState(null);
@@ -55,6 +57,11 @@ export default function AssetDetail() {
   };
 
   useEffect(() => { load(); }, [assetId]);
+
+  useEffect(() => {
+    setNewNote('');
+    setNewNoteEditorKey((k) => k + 1);
+  }, [assetId]);
 
   const startEditField = (field) => {
     setEditingField(field);
@@ -109,6 +116,7 @@ export default function AssetDetail() {
     try {
       await api.post(`/assets/${assetId}/notes`, { body: newNote });
       setNewNote('');
+      setNewNoteEditorKey((k) => k + 1);
       load();
       toast.success('Note added');
     } catch (err) { toast.error(err.message); }
@@ -407,67 +415,64 @@ export default function AssetDetail() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-6">
-        {/* Notes */}
-        <div>
-          <h2 className="text-base font-medium mb-3 flex items-center gap-2"><StickyNote className="w-4 h-4" /> Notes</h2>
-          <div className="mb-4">
-            <label className="label block mb-1">New note (Markdown)</label>
-            <MarkdownEditor
-              value={newNote}
-              onChange={setNewNote}
-              placeholder="Write a note (markdown supported)..."
-              minHeight="140px"
-            />
-            <button onClick={addNote} className="btn-primary text-sm flex items-center gap-2 mt-2">
-              <Plus className="w-3.5 h-3.5" /> Add Note
-            </button>
-          </div>
-          <div className="space-y-3">
-            {notes.map((n) => (
-              <div key={n.id} className="card">
-                {editingNote === n.id ? (
-                  <div>
-                    <MarkdownEditor
-                      value={editingNoteBody}
-                      onChange={setEditingNoteBody}
-                      minHeight="120px"
-                      id={`note-edit-${n.id}`}
-                    />
-                    <div className="flex gap-2 mt-2">
-                      <button onClick={() => updateNote(n.id, editingNoteBody)} className="btn-primary text-xs">Save</button>
-                      <button onClick={() => { setEditingNote(null); setEditingNoteBody(''); }} className="btn-secondary text-xs">Cancel</button>
+      {/* Notes — full width; saved notes first, composer below */}
+      <div className="mb-8">
+        <h2 className="text-base font-medium mb-3 flex items-center gap-2"><StickyNote className="w-4 h-4" /> Notes</h2>
+        <div className="space-y-3 mb-6">
+          {notes.map((n) => (
+            <div key={n.id} className="card">
+              {editingNote === n.id ? (
+                <div>
+                  <MarkdownEditor
+                    value={editingNoteBody}
+                    onChange={setEditingNoteBody}
+                    minHeight="120px"
+                    id={`note-edit-${n.id}`}
+                  />
+                  <div className="flex gap-2 mt-2">
+                    <button onClick={() => updateNote(n.id, editingNoteBody)} className="btn-primary text-xs">Save</button>
+                    <button onClick={() => { setEditingNote(null); setEditingNoteBody(''); }} className="btn-secondary text-xs">Cancel</button>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <MarkdownViewer content={n.body} />
+                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
+                    <span className="text-2xs text-text-muted">{new Date(n.created_at).toLocaleString()}</span>
+                    <div className="flex gap-2">
+                      <button onClick={() => { setEditingNote(n.id); setEditingNoteBody(n.body); }} className="btn-ghost text-xs">Edit</button>
+                      <button onClick={() => deleteNote(n.id)} className="text-text-muted hover:text-red-400 transition-colors">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
                     </div>
                   </div>
-                ) : (
-                  <div>
-                    <MarkdownViewer content={n.body} />
-                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
-                      <span className="text-2xs text-text-muted">{new Date(n.created_at).toLocaleString()}</span>
-                      <div className="flex gap-2">
-                        <button onClick={() => { setEditingNote(n.id); setEditingNoteBody(n.body); }} className="btn-ghost text-xs">Edit</button>
-                        <button onClick={() => deleteNote(n.id)} className="text-text-muted hover:text-red-400 transition-colors">
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-            {notes.length === 0 && <p className="text-sm text-text-muted">No notes yet</p>}
-          </div>
+                </div>
+              )}
+            </div>
+          ))}
+          {notes.length === 0 && <p className="text-sm text-text-muted">No notes yet</p>}
         </div>
-
-        {/* Attachments */}
         <div>
-          <AttachmentGallery
-            attachments={screenshots}
-            onUpload={uploadFile}
-            onDelete={deleteFile}
+          <label className="label block mb-1">New note (Markdown)</label>
+          <MarkdownEditor
+            key={newNoteEditorKey}
+            value={newNote}
+            onChange={setNewNote}
+            placeholder="Write a note (markdown supported)..."
+            minHeight="140px"
           />
+          <button type="button" onClick={addNote} className="btn-primary text-sm flex items-center gap-2 mt-2">
+            <Plus className="w-3.5 h-3.5" /> Add Note
+          </button>
         </div>
       </div>
+
+      {/* Attachments — below notes */}
+      <AttachmentGallery
+        attachments={screenshots}
+        onUpload={uploadFile}
+        onDelete={deleteFile}
+      />
     </div>
   );
 }

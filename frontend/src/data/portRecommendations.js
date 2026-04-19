@@ -114,6 +114,10 @@ const PORT_RECOMMENDATIONS = {
     service: 'HTTP',
     items: [
       {
+        title: 'Check for virtual hosts',
+        commands: ['gobuster vhost -u https://{target} -w subdomains.txt -k'],
+      },
+      {
         title: 'Directory and file brute-force',
         commands: [
           'gobuster dir -u http://{target} -w /usr/share/wordlists/dirb/common.txt -x php,html,txt',
@@ -122,27 +126,19 @@ const PORT_RECOMMENDATIONS = {
         ],
       },
       {
-        title: 'Subdomain enumeration',
-        commands: ['gobuster vhost -u http://{target} -w subdomains.txt'],
-      },
-      {
         title: 'Technology fingerprinting',
         commands: ['whatweb http://{target}', 'wappalyzer http://{target}'],
       },
       {
         title: 'Scan for common vulnerabilities',
         commands: [
-          'nmap -p 443 --script=http-vuln-*,ssl-* {target}',
-          'nuclei -u https://{target} -as',
-          'nuclei -u https://{target} -t cves/',
-          'nuclei -u https://{target} -t exposures/',
-          'nuclei -u https://{target} -t misconfiguration/',
-          'nikto -h https://{target}'
+          'nmap -p 80 --script=http-vuln-*,ssl-* {target}',
+          'nuclei -u http://{target} -as',
+          'nuclei -u http://{target} -t cves/',
+          'nuclei -u http://{target} -t exposures/',
+          'nuclei -u http://{target} -t misconfiguration/',
+          'nikto -h http://{target}'
         ],
-      },
-      {
-        title: 'Check for virtual hosts',
-        commands: ['gobuster vhost -u http://{target} -w subdomains.txt'],
       },
       {
         title: 'Spider / crawl the site',
@@ -180,6 +176,10 @@ const PORT_RECOMMENDATIONS = {
         ],
       },
       {
+        title: 'Check for virtual hosts',
+        commands: ['gobuster vhost -u https://{target} -w subdomains.txt -k'],
+      },
+      {
         title: 'Directory and file brute-force',
         commands: [
           'gobuster dir -u https://{target} -w /usr/share/wordlists/dirb/common.txt -x php,html,txt -k',
@@ -200,10 +200,6 @@ const PORT_RECOMMENDATIONS = {
           'nuclei -u https://{target} -t misconfiguration/',
           'nikto -h https://{target}'
         ],
-      },
-      {
-        title: 'Check for virtual hosts',
-        commands: ['gobuster vhost -u https://{target} -w subdomains.txt -k'],
       },
       {
         title: 'Spider / crawl the site',
@@ -582,6 +578,10 @@ const PORT_RECOMMENDATIONS = {
     service: 'HTTP Proxy / Alt HTTP',
     items: [
       {
+        title: 'Check for virtual hosts',
+        commands: ['gobuster vhost -u http://{target}:8080 -w subdomains.txt -k'],
+      },
+      {
         title: 'Directory and file brute-force',
         commands: [
           'gobuster dir -u http://{target}:8080 -w /usr/share/wordlists/dirb/common.txt -x php,html,txt',
@@ -595,12 +595,12 @@ const PORT_RECOMMENDATIONS = {
       {
         title: 'Scan for common vulnerabilities',
         commands: [
-          'nmap -p 443 --script=http-vuln-*,ssl-* {target}',
-          'nuclei -u https://{target} -as',
-          'nuclei -u https://{target} -t cves/',
-          'nuclei -u https://{target} -t exposures/',
-          'nuclei -u https://{target} -t misconfiguration/',
-          'nikto -h https://{target}'
+          'nmap -p 8080 --script=http-vuln-*,ssl-* {target}',
+          'nuclei -u http://{target}:8080 -as',
+          'nuclei -u http://{target}:8080 -t cves/',
+          'nuclei -u http://{target}:8080 -t exposures/',
+          'nuclei -u http://{target}:8080 -t misconfiguration/',
+          'nikto -h http://{target}:8080'
         ],
       },
     ],
@@ -614,18 +614,22 @@ const PORT_RECOMMENDATIONS = {
         commands: ['openssl s_client -connect {target}:8443 | openssl x509 -noout -text', 'sslscan {target}:8443'],
       },
       {
+        title: 'Check for virtual hosts',
+        commands: ['gobuster vhost -u https://{target}:8443 -w subdomains.txt -k'],
+      },
+      {
         title: 'Directory brute-force',
         commands: ['gobuster dir -u https://{target}:8443 -w /usr/share/wordlists/dirb/common.txt -k'],
       },
       {
         title: 'Scan for common vulnerabilities',
         commands: [
-          'nmap -p 443 --script=http-vuln-*,ssl-* {target}',
-          'nuclei -u https://{target} -as',
-          'nuclei -u https://{target} -t cves/',
-          'nuclei -u https://{target} -t exposures/',
-          'nuclei -u https://{target} -t misconfiguration/',
-          'nikto -h https://{target}'
+          'nmap -p 8443 --script=http-vuln-*,ssl-* {target}',
+          'nuclei -u https://{target}:8443 -as',
+          'nuclei -u https://{target}:8443 -t cves/',
+          'nuclei -u https://{target}:8443 -t exposures/',
+          'nuclei -u https://{target}:8443 -t misconfiguration/',
+          'nikto -h https://{target}:8443'
         ],
       },
     ],
@@ -887,18 +891,22 @@ const PORT_RECOMMENDATIONS = {
         commands: ['curl -sI http://{target}:8000', 'whatweb http://{target}:8000'],
       },
       {
+        title: 'Check for virtual hosts',
+        commands: ['gobuster vhost -u http://{target}:8000 -w subdomains.txt -k'],
+      },
+      {
         title: 'Directory brute-force',
         commands: ['gobuster dir -u http://{target}:8000 -w /usr/share/wordlists/dirb/common.txt -x php,html,txt'],
       },
       {
         title: 'Scan for common vulnerabilities',
         commands: [
-          'nmap -p 443 --script=http-vuln-*,ssl-* {target}',
-          'nuclei -u https://{target} -as',
-          'nuclei -u https://{target} -t cves/',
-          'nuclei -u https://{target} -t exposures/',
-          'nuclei -u https://{target} -t misconfiguration/',
-          'nikto -h https://{target}'
+          'nmap -p 8000 --script=http-vuln-*,ssl-* {target}',
+          'nuclei -u http://{target}:8000 -as',
+          'nuclei -u http://{target}:8000 -t cves/',
+          'nuclei -u http://{target}:8000 -t exposures/',
+          'nuclei -u http://{target}:8000 -t misconfiguration/',
+          'nikto -h http://{target}:8000'
         ],
       },
     ],

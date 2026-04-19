@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -7,14 +6,13 @@ from jinja2 import Environment, FileSystemLoader
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
+from backend.data_paths import REPORT_DIR
 from backend.models import Engagement, Scope, ScopeEntry, Finding, ChecklistItem
 
 router = APIRouter(tags=["reports"])
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 TEMPLATE_DIR = BASE_DIR / "templates"
-DATA_DIR = Path(os.environ.get("DATA_DIR", BASE_DIR.parent / "data"))
-REPORT_DIR = DATA_DIR / "reports"
 
 SEVERITY_ORDER = {"Critical": 0, "High": 1, "Medium": 2, "Low": 3, "Info": 4}
 
@@ -28,8 +26,9 @@ def _get_report_data(engagement_id: int, db: Session) -> dict:
     findings = db.query(Finding).filter(Finding.engagement_id == engagement_id).all()
     findings.sort(key=lambda f: SEVERITY_ORDER.get(f.severity, 5))
     checklists = db.query(ChecklistItem).filter(ChecklistItem.engagement_id == engagement_id).all()
-    total_items = len(checklists)
-    checked_items = sum(1 for c in checklists if c.is_checked)
+    applicable = [c for c in checklists if not getattr(c, "is_na", False)]
+    total_items = len(applicable)
+    checked_items = sum(1 for c in applicable if c.is_checked)
     severity_counts: dict = {}
     for f in findings:
         severity_counts[f.severity] = severity_counts.get(f.severity, 0) + 1

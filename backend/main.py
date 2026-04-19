@@ -6,12 +6,13 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from backend.database import engine, Base
+from backend.database import engine, Base, ensure_sqlite_schema
 
 from backend.routers import (
     engagements, scope, assets, notes, tool_output,
     screenshots, phases, findings, credentials,
     checklists, activity_log, tags, assistant, nmap_import, burp_import, reports,
+    engagement_io,
 )
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -23,6 +24,7 @@ REPORT_DIR = DATA_DIR / "reports"
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     Base.metadata.create_all(bind=engine)
+    ensure_sqlite_schema()
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     yield
@@ -55,6 +57,7 @@ app.include_router(nmap_import.router, prefix="/api")
 app.include_router(burp_import.router, prefix="/api")
 
 app.include_router(reports.router, prefix="/api")
+app.include_router(engagement_io.router, prefix="/api")
 
 FRONTEND_DIR = BASE_DIR.parent / "frontend" / "dist"
 if FRONTEND_DIR.exists():

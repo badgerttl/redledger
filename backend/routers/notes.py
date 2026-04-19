@@ -32,7 +32,13 @@ def _serialize(n: Note) -> dict:
 
 @router.get("/assets/{asset_id}/notes")
 def list_notes(asset_id: int, db: Session = Depends(get_db)):
-    return [_serialize(n) for n in db.query(Note).filter(Note.asset_id == asset_id).order_by(Note.created_at.desc()).all()]
+    return [
+        _serialize(n)
+        for n in db.query(Note)
+        .filter(Note.asset_id == asset_id)
+        .order_by(Note.created_at.asc(), Note.id.asc())
+        .all()
+    ]
 
 
 @router.post("/assets/{asset_id}/notes", status_code=201)

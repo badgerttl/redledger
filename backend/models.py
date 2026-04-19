@@ -223,6 +223,7 @@ class ChecklistItem(Base):
     label = Column(String(255), nullable=False)
     description = Column(Text, default="")
     is_checked = Column(Boolean, default=False)
+    is_na = Column(Boolean, default=False)
     sort_order = Column(Integer, default=0)
 
     engagement = relationship("Engagement", back_populates="checklist_items")

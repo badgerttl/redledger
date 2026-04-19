@@ -1,11 +1,14 @@
+from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import Engagement, Scope
+from backend.data_paths import REPORT_DIR, UPLOAD_DIR
+from backend.models import Engagement, Scope, Asset, Finding, Screenshot
 from backend.utils import seed_checklists
 
 router = APIRouter(tags=["engagements"])
@@ -86,10 +89,42 @@ def update_engagement(engagement_id: int, body: EngagementUpdate, db: Session = 
     return _serialize(eng)
 
 
+def _purge_engagement_disk_files(engagement_id: int, db: Session) -> None:
+    """Remove screenshot files and generated report files for this engagement before DB delete."""
+    upload_root = UPLOAD_DIR.resolve()
+    screenshots = (
+        db.query(Screenshot)
+        .outerjoin(Asset, Screenshot.asset_id == Asset.id)
+        .outerjoin(Finding, Screenshot.finding_id == Finding.id)
+        .filter(or_(Asset.engagement_id == engagement_id, Finding.engagement_id == engagement_id))
+        .all()
+    )
+    for sc in screenshots:
+        try:
+            p = Path(sc.file_path).resolve()
+            p.relative_to(upload_root)
+        except (ValueError, OSError):
+            continue
+        try:
+            if p.is_file():
+                p.unlink()
+        except OSError:
+            pass
+
+    if REPORT_DIR.exists():
+        for p in REPORT_DIR.glob(f"engagement_{engagement_id}_report*"):
+            try:
+                if p.is_file():
+                    p.unlink()
+            except OSError:
+                pass
+
+
 @router.delete("/engagements/{engagement_id}", status_code=204)
 def delete_engagement(engagement_id: int, db: Session = Depends(get_db)):
     eng = db.query(Engagement).filter(Engagement.id == engagement_id).first()
     if not eng:
         raise HTTPException(404, "Engagement not found")
+    _purge_engagement_disk_files(engagement_id, db)
     db.delete(eng)
     db.commit()

@@ -12,6 +12,7 @@ router = APIRouter(tags=["checklists"])
 
 class ChecklistToggle(BaseModel):
     is_checked: Optional[bool] = None
+    is_na: Optional[bool] = None
 
 
 def _serialize(c: ChecklistItem) -> dict:
@@ -22,6 +23,7 @@ def _serialize(c: ChecklistItem) -> dict:
         "label": c.label,
         "description": c.description,
         "is_checked": c.is_checked,
+        "is_na": bool(getattr(c, "is_na", False)),
         "sort_order": c.sort_order,
     }
 
@@ -42,8 +44,14 @@ def toggle_checklist(item_id: int, body: ChecklistToggle, db: Session = Depends(
     item = db.query(ChecklistItem).filter(ChecklistItem.id == item_id).first()
     if not item:
         raise HTTPException(404, "Checklist item not found")
+    if body.is_na is not None:
+        item.is_na = body.is_na
+        if item.is_na:
+            item.is_checked = False
     if body.is_checked is not None:
         item.is_checked = body.is_checked
+        if item.is_checked:
+            item.is_na = False
     db.commit()
     db.refresh(item)
     return _serialize(item)

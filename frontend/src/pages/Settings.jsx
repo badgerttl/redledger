@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
-import { Settings as SettingsIcon, Sun, Moon } from 'lucide-react';
+import { Settings as SettingsIcon, Sun, Moon, Download, Upload, Loader2 } from 'lucide-react';
+import api from '../api/client';
 import { getAssistantContextLimitTokens } from '../assistant/contextUsage';
 import {
   ASSISTANT_SYSTEM_STORAGE_KEY,
@@ -9,12 +11,21 @@ import {
   DEFAULT_ASSISTANT_CONTEXT_TOKENS,
 } from '../assistant/storageKeys';
 import { COLOR_THEMES, applyColorTheme, applyDarkMode } from '../theme/documentTheme';
+import { useEngagement } from '../context/EngagementContext';
 
 export default function Settings() {
+  const navigate = useNavigate();
+  const { engagements, refresh } = useEngagement();
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
   const [colorTheme, setColorTheme] = useState(() => localStorage.getItem('colorTheme') || 'crimson');
   const [systemPrompt, setSystemPrompt] = useState(() => localStorage.getItem(ASSISTANT_SYSTEM_STORAGE_KEY) || '');
   const [contextLimit, setContextLimit] = useState(() => String(getAssistantContextLimitTokens()));
+
+  // Export / import state (engagement list comes from EngagementContext so Sidebar / Dashboard stay in sync)
+  const [exportEngagementId, setExportEngagementId] = useState('');
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef(null);
 
   useEffect(() => {
     setDark(document.documentElement.classList.contains('dark'));
@@ -22,6 +33,17 @@ export default function Settings() {
     setSystemPrompt(localStorage.getItem(ASSISTANT_SYSTEM_STORAGE_KEY) || '');
     setContextLimit(String(getAssistantContextLimitTokens()));
   }, []);
+
+  useEffect(() => {
+    if (engagements.length === 0) {
+      if (exportEngagementId) setExportEngagementId('');
+      return;
+    }
+    const ids = new Set(engagements.map((e) => String(e.id)));
+    if (!exportEngagementId || !ids.has(exportEngagementId)) {
+      setExportEngagementId(String(engagements[0].id));
+    }
+  }, [engagements, exportEngagementId]);
 
   const toggleTheme = () => {
     const next = !dark;
@@ -34,6 +56,53 @@ export default function Settings() {
     setColorTheme(id);
     applyColorTheme(id);
     localStorage.setItem('colorTheme', id);
+  };
+
+  const handleExport = async () => {
+    if (!exportEngagementId) return;
+    setExporting(true);
+    try {
+      const res = await api.get(`/engagements/${exportEngagementId}/export`, {
+        responseType: 'blob',
+      });
+      const eng = engagements.find((e) => String(e.id) === String(exportEngagementId));
+      const safeName = (eng?.name || 'engagement').replace(/[^a-z0-9_-]/gi, '_').slice(0, 50);
+      const url = URL.createObjectURL(res.data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `redledger_${safeName}_${exportEngagementId}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Export downloaded');
+    } catch {
+      toast.error('Export failed');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleImportFile = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+    if (!file.name.endsWith('.zip')) {
+      toast.error('Please select a .zip export file');
+      return;
+    }
+    setImporting(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const { data } = await api.post('/engagements/import', fd);
+      toast.success(data.message || 'Engagement imported');
+      await refresh();
+      setExportEngagementId(String(data.id));
+      navigate(`/e/${data.id}`);
+    } catch (err) {
+      toast.error(err.message || 'Import failed');
+    } finally {
+      setImporting(false);
+    }
   };
 
   const saveAssistantSettings = () => {
@@ -60,7 +129,7 @@ export default function Settings() {
             <SettingsIcon className="h-6 w-6 text-accent" />
             Settings
           </h1>
-          <p className="mt-0.5 text-sm text-text-muted">Appearance and Assistant behavior.</p>
+          <p className="mt-0.5 text-sm text-text-muted">Appearance, Assistant, and engagement backup.</p>
         </div>
       </div>
 
@@ -147,6 +216,78 @@ export default function Settings() {
             <div className="flex justify-end">
               <button type="button" onClick={saveAssistantSettings} className="btn-primary text-sm">
                 Save assistant settings
+              </button>
+            </div>
+          </div>
+        </section>
+
+        {/* Export / import — bottom of page */}
+        <section>
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Engagement backup</h2>
+          <div className="card space-y-6">
+            <div>
+              <p className="label mb-1">Export engagement</p>
+              <p className="mb-3 text-xs text-text-muted">
+                Downloads a <span className="font-mono">.zip</span> containing all engagement data — scope, assets, notes, findings, credentials, tool output, checklists, activity log, evidence attachments, saved report files under <span className="font-mono">data/reports/</span>, and a JSON manifest.
+              </p>
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="flex-1 min-w-[220px]">
+                  <label className="label mb-1" htmlFor="export-engagement">Engagement</label>
+                  <select
+                    id="export-engagement"
+                    className="input"
+                    value={exportEngagementId}
+                    onChange={(e) => setExportEngagementId(e.target.value)}
+                    disabled={engagements.length === 0}
+                  >
+                    {engagements.length === 0
+                      ? <option value="">No engagements</option>
+                      : engagements.map((e) => (
+                        <option key={e.id} value={String(e.id)}>{e.name}</option>
+                      ))
+                    }
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleExport}
+                  disabled={exporting || !exportEngagementId}
+                  className="btn-primary flex items-center gap-2 text-sm"
+                >
+                  {exporting
+                    ? <Loader2 className="w-4 h-4 animate-spin" />
+                    : <Download className="w-4 h-4" />
+                  }
+                  {exporting ? 'Exporting…' : 'Export'}
+                </button>
+              </div>
+            </div>
+
+            <div className="border-t border-border" />
+
+            <div>
+              <p className="label mb-1">Import engagement</p>
+              <p className="mb-3 text-xs text-text-muted">
+                Restores an engagement from a previously exported <span className="font-mono">.zip</span>. All data is imported as a new engagement — existing engagements are not modified. Tags are merged by name.
+              </p>
+              <input
+                ref={importInputRef}
+                type="file"
+                accept=".zip"
+                className="hidden"
+                onChange={handleImportFile}
+              />
+              <button
+                type="button"
+                onClick={() => importInputRef.current?.click()}
+                disabled={importing}
+                className="btn-secondary flex items-center gap-2 text-sm"
+              >
+                {importing
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <Upload className="w-4 h-4" />
+                }
+                {importing ? 'Importing…' : 'Select .zip to import'}
               </button>
             </div>
           </div>
