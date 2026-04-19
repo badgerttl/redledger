@@ -227,13 +227,15 @@
     @apply text-2xl font-semibold tracking-tight text-text-primary;
   }
 
-  .markdown-body h1 { @apply text-xl font-semibold mb-4 mt-6 text-text-primary; }
-  .markdown-body h2 { @apply text-lg font-semibold mb-3 mt-5 text-text-primary; }
-  .markdown-body h3 { @apply text-base font-medium mb-2 mt-4 text-text-primary; }
-  .markdown-body p { @apply mb-3 text-text-secondary leading-relaxed; }
-  .markdown-body ul { @apply list-disc list-inside mb-3 text-text-secondary; }
-  .markdown-body ol { @apply list-decimal list-inside mb-3 text-text-secondary; }
-  .markdown-body li { @apply mb-1; }
+  /* Base size matches the editor's text-sm so viewer and editor look identical */
+  .markdown-body { @apply text-sm leading-relaxed; }
+  .markdown-body h1 { @apply text-xl font-semibold mb-2 mt-4 text-text-primary; }
+  .markdown-body h2 { @apply text-lg font-semibold mb-2 mt-3 text-text-primary; }
+  .markdown-body h3 { @apply text-base font-medium mb-1 mt-3 text-text-primary; }
+  .markdown-body p { @apply mb-2 text-text-secondary leading-relaxed; }
+  .markdown-body ul { @apply list-disc pl-5 mb-2 text-text-secondary; }
+  .markdown-body ol { @apply list-decimal pl-5 mb-2 text-text-secondary; }
+  .markdown-body li { @apply mb-0.5; }
   .markdown-body code { @apply bg-input px-1.5 py-0.5 rounded text-sm text-accent font-mono; }
   .markdown-body pre { @apply bg-input p-4 rounded-xl overflow-x-auto mb-4 border border-border; }
   .markdown-body pre code { @apply bg-transparent p-0; }
@@ -270,6 +272,48 @@
   .tiptap-editor .ProseMirror p.is-editor-empty:first-child::before {
     content: attr(data-placeholder);
     @apply text-text-muted float-left h-0 pointer-events-none;
+  }
+
+  /* Obsidian-style active line — show markdown syntax prefix via ::before */
+  .tiptap-editor .ProseMirror h1.obsidian-active::before,
+  .tiptap-editor .ProseMirror h2.obsidian-active::before,
+  .tiptap-editor .ProseMirror h3.obsidian-active::before,
+  .tiptap-editor .ProseMirror h4.obsidian-active::before,
+  .tiptap-editor .ProseMirror h5.obsidian-active::before,
+  .tiptap-editor .ProseMirror h6.obsidian-active::before {
+    font-weight: 400;
+    font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', monospace;
+    font-size: 0.8em;
+    opacity: 0.55;
+    margin-right: 0.15em;
+    color: inherit;
+    user-select: none;
+    pointer-events: none;
+  }
+  .tiptap-editor .ProseMirror h1.obsidian-active::before { content: '#'; }
+  .tiptap-editor .ProseMirror h2.obsidian-active::before { content: '##'; }
+  .tiptap-editor .ProseMirror h3.obsidian-active::before { content: '###'; }
+  .tiptap-editor .ProseMirror h4.obsidian-active::before { content: '####'; }
+  .tiptap-editor .ProseMirror h5.obsidian-active::before { content: '#####'; }
+  .tiptap-editor .ProseMirror h6.obsidian-active::before { content: '######'; }
+
+  /* Blockquote — show > prefix on active line */
+  .tiptap-editor .ProseMirror blockquote.obsidian-active > p::before {
+    content: '>';
+    @apply text-accent font-mono text-xs opacity-60 mr-1;
+    user-select: none;
+    pointer-events: none;
+  }
+
+  /* Code block — show ``` label above when active */
+  .tiptap-editor .ProseMirror pre.obsidian-active {
+    @apply ring-1 ring-accent/30;
+  }
+  .tiptap-editor .ProseMirror pre.obsidian-active::before {
+    content: '```';
+    @apply block text-xs font-mono opacity-40 mb-1;
+    user-select: none;
+    pointer-events: none;
   }
 }
 

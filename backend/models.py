@@ -262,3 +262,15 @@ class Tag(Base):
     findings = relationship("Finding", secondary=finding_tag, back_populates="tags")
     tool_outputs = relationship("ToolOutput", secondary=tool_output_tag, back_populates="tags")
     notes = relationship("Note", secondary=note_tag, back_populates="tags")
+
+
+class ChatMessage(Base):
+    """Persisted chat history scoped by context_type ('engagement' | 'asset') + context_id."""
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    context_type = Column(String(20), nullable=False)   # 'engagement' | 'asset'
+    context_id = Column(Integer, nullable=False, index=True)
+    role = Column(String(20), nullable=False)            # 'user' | 'assistant'
+    content = Column(Text, default="")
+    created_at = Column(DateTime, default=datetime.datetime.utcnow)

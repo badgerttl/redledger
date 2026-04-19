@@ -10,6 +10,7 @@ import SeverityBadge from '../components/SeverityBadge';
 import StatusBadge from '../components/StatusBadge';
 import { ArrowLeft, Plus, Trash2, StickyNote, Pencil, Check, X, Copy, ShieldAlert, KeyRound, Eye, EyeOff } from 'lucide-react';
 import ReconRecommendations from '../components/ReconRecommendations';
+import AssetChat from '../components/AssetChat';
 
 const DEFAULT_TAG_COLORS = ['#6366f1', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
 
@@ -472,6 +473,16 @@ export default function AssetDetail() {
         attachments={screenshots}
         onUpload={uploadFile}
         onDelete={deleteFile}
+      />
+
+      {/* Asset Assistant — LLM chat contextualised to this asset */}
+      <AssetChat
+        assetId={assetId}
+        asset={asset}
+        linkedFindings={linkedFindings}
+        linkedCredentials={linkedCredentials}
+        notes={notes}
+        onNoteAdded={load}
       />
     </div>
   );
