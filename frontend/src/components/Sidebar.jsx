@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { NavLink, useParams, useNavigate } from 'react-router-dom';
 import { useEngagement } from '../context/EngagementContext';
 import clsx from 'clsx';
@@ -25,6 +25,7 @@ const NAV_ITEMS = [
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const engagementDropdownRef = useRef(null);
   const { engagements, current, selectEngagement, setCurrent } = useEngagement();
   const { id } = useParams();
   const navigate = useNavigate();
@@ -47,6 +48,17 @@ export default function Sidebar() {
     setCurrent(null);
     navigate('/?new=1');
   };
+
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const onPointerDown = (e) => {
+      if (engagementDropdownRef.current && !engagementDropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => document.removeEventListener('pointerdown', onPointerDown);
+  }, [dropdownOpen]);
 
   return (
     <aside
@@ -79,7 +91,7 @@ export default function Sidebar() {
 
       {!collapsed && (
         <div className="border-b border-sidebar-border/80 px-3 py-3">
-          <div className="relative">
+          <div className="relative" ref={engagementDropdownRef}>
             <button
               type="button"
               onClick={() => setDropdownOpen(!dropdownOpen)}

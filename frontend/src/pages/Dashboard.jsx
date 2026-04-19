@@ -19,6 +19,7 @@ export default function Dashboard() {
   const { engagements, current, refresh, selectEngagement, setCurrent } = useEngagement();
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', client_name: '', client_contact: '', start_date: '', end_date: '', rules_of_engagement: '' });
+  const [createScopeForm, setCreateScopeForm] = useState({ in_scope: '', out_scope: '' });
   const [editing, setEditing] = useState(false);
   const [scopeForm, setScopeForm] = useState({ in_scope: '', out_scope: '' });
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -32,6 +33,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [engagementSearchQuery, setEngagementSearchQuery] = useState('');
 
   useEffect(() => {
     if (searchParams.get('new') === '1') {
@@ -72,11 +74,16 @@ export default function Dashboard() {
   const handleCreate = async () => {
     if (!form.name.trim()) return toast.error('Name is required');
     try {
-      const { data } = await api.post('/engagements', form);
+      const { data } = await api.post('/engagements', {
+        ...form,
+        in_scope: createScopeForm.in_scope,
+        out_scope: createScopeForm.out_scope,
+      });
       toast.success('Engagement created');
       await refresh();
       setShowCreate(false);
       setForm({ name: '', description: '', client_name: '', client_contact: '', start_date: '', end_date: '', rules_of_engagement: '' });
+      setCreateScopeForm({ in_scope: '', out_scope: '' });
       navigate(`/e/${data.id}`);
     } catch (err) { toast.error(err.message); }
   };
@@ -141,6 +148,20 @@ export default function Dashboard() {
     );
   }, [credentials, q]);
 
+  const filteredEngagements = useMemo(() => {
+    const eq = engagementSearchQuery.trim().toLowerCase();
+    if (!eq) return engagements;
+    return engagements.filter((e) =>
+      (e.name || '').toLowerCase().includes(eq) ||
+      (e.client_name || '').toLowerCase().includes(eq) ||
+      (e.description || '').toLowerCase().includes(eq) ||
+      (e.status || '').toLowerCase().includes(eq) ||
+      (e.client_contact || '').toLowerCase().includes(eq) ||
+      (e.start_date || '').toLowerCase().includes(eq) ||
+      (e.end_date || '').toLowerCase().includes(eq)
+    );
+  }, [engagements, engagementSearchQuery]);
+
   // ── Engagement list view ───────────────────────────────────────────────────
   if (!id) {
     return (
@@ -152,6 +173,22 @@ export default function Dashboard() {
           </button>
         </div>
 
+        {engagements.length > 0 && (
+          <div className="mb-5">
+            <div className="relative max-w-md">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-muted pointer-events-none" />
+              <input
+                type="search"
+                className="input pl-9 text-sm"
+                placeholder="Search engagements…"
+                value={engagementSearchQuery}
+                onChange={(e) => setEngagementSearchQuery(e.target.value)}
+                autoComplete="off"
+              />
+            </div>
+          </div>
+        )}
+
         {showCreate && (
           <div className="card mb-6">
             <h2 className="text-base font-medium mb-4">Create Engagement</h2>
@@ -162,15 +199,25 @@ export default function Dashboard() {
               <div><label className="label">End Date</label><input type="date" className="input" value={form.end_date} onChange={(e) => setForm({ ...form, end_date: e.target.value })} /></div>
             </div>
             <div className="mb-4"><label className="label">Description</label><textarea className="textarea" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} /></div>
+            <div className="grid grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="label flex items-center gap-2 mb-1"><Target className="w-3.5 h-3.5 text-text-muted" /> In scope</label>
+                <textarea className="textarea min-h-[120px]" placeholder="Targets, ranges, domains in scope…" value={createScopeForm.in_scope} onChange={(e) => setCreateScopeForm({ ...createScopeForm, in_scope: e.target.value })} />
+              </div>
+              <div>
+                <label className="label flex items-center gap-2 mb-1"><Target className="w-3.5 h-3.5 text-text-muted" /> Out of scope</label>
+                <textarea className="textarea min-h-[120px]" placeholder="Explicitly excluded targets…" value={createScopeForm.out_scope} onChange={(e) => setCreateScopeForm({ ...createScopeForm, out_scope: e.target.value })} />
+              </div>
+            </div>
             <div className="flex gap-3">
               <button onClick={handleCreate} className="btn-primary">Create</button>
-              <button onClick={() => setShowCreate(false)} className="btn-secondary">Cancel</button>
+              <button onClick={() => { setShowCreate(false); setCreateScopeForm({ in_scope: '', out_scope: '' }); }} className="btn-secondary">Cancel</button>
             </div>
           </div>
         )}
 
         <div className="grid gap-3">
-          {engagements.map((e) => (
+          {filteredEngagements.map((e) => (
             <div key={e.id} className="card flex items-center justify-between cursor-pointer hover:border-accent/30 transition-colors" onClick={() => navigate(`/e/${e.id}`)}>
               <div>
                 <div className="flex items-center gap-3 mb-1">
@@ -195,6 +242,11 @@ export default function Dashboard() {
             <div className="text-center py-12 text-text-muted">
               <Shield className="w-12 h-12 mx-auto mb-3 opacity-30" />
               <p>No engagements yet. Create one to get started.</p>
+            </div>
+          )}
+          {engagements.length > 0 && filteredEngagements.length === 0 && (
+            <div className="text-center py-12 text-sm text-text-muted">
+              No engagements match &quot;{engagementSearchQuery.trim()}&quot;
             </div>
           )}
         </div>

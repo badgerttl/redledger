@@ -22,6 +22,8 @@ class EngagementCreate(BaseModel):
     start_date: str = ""
     end_date: str = ""
     rules_of_engagement: str = ""
+    in_scope: str = ""
+    out_scope: str = ""
 
 
 class EngagementUpdate(BaseModel):
@@ -59,10 +61,13 @@ def list_engagements(db: Session = Depends(get_db)):
 
 @router.post("/engagements", status_code=201)
 def create_engagement(body: EngagementCreate, db: Session = Depends(get_db)):
-    eng = Engagement(**body.model_dump())
+    payload = body.model_dump()
+    in_scope = payload.pop("in_scope", "") or ""
+    out_scope = payload.pop("out_scope", "") or ""
+    eng = Engagement(**payload)
     db.add(eng)
     db.flush()
-    db.add(Scope(engagement_id=eng.id, in_scope="", out_scope=""))
+    db.add(Scope(engagement_id=eng.id, in_scope=in_scope, out_scope=out_scope))
     db.commit()
     db.refresh(eng)
     seed_checklists(db, eng.id)

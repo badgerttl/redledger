@@ -11,7 +11,10 @@ export function EngagementProvider({ children }) {
   const refresh = useCallback(async () => {
     try {
       const { data } = await api.get('/engagements');
-      setEngagements(data);
+      const sorted = [...data].sort((a, b) =>
+        (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }),
+      );
+      setEngagements(sorted);
     } catch { /* empty */ }
     setLoading(false);
   }, []);
