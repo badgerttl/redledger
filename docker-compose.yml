@@ -1,5 +1,9 @@
 # To remove images when stopping: docker compose down --rmi all
 # (--rmi local removes only images without a custom tag)
+#
+# Local LLM (Ollama / LM Studio): from inside the container, localhost is not the host.
+# Uncomment and set to reach Ollama or LM Studio on the machine running Docker, e.g.:
+#   LLM_PROXY_URL=http://host.docker.internal:11434
 services:
   redledger:
     build: .
@@ -9,4 +13,8 @@ services:
       - ./data:/app/data:Z
     environment:
       - DATA_DIR=/app/data
+      # Use this if you are running Ollama on the same machine as Docker
+      #- LLM_PROXY_URL=http://host.docker.internal:11434
+      # Use this if you are running LM Studio on the same machine as Docker
+      - LLM_PROXY_URL=http://host.docker.internal:1234
     restart: unless-stopped

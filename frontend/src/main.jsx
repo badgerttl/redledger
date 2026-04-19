@@ -4,18 +4,9 @@ import { BrowserRouter } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 import App from './App';
 import './index.css';
+import { initDocumentThemeFromStorage } from './theme/documentTheme';
 
-const savedTheme = localStorage.getItem('theme');
-if (savedTheme === 'light') {
-  document.documentElement.classList.remove('dark');
-} else {
-  document.documentElement.classList.add('dark');
-}
-
-const savedColorTheme = localStorage.getItem('colorTheme');
-if (savedColorTheme && savedColorTheme !== 'crimson') {
-  document.documentElement.classList.add(`theme-${savedColorTheme}`);
-}
+initDocumentThemeFromStorage();
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

@@ -13,7 +13,7 @@ from backend.models import Scope, ChecklistItem, Engagement
 from backend.routers import (
     engagements, scope, assets, notes, tool_output,
     screenshots, phases, findings, credentials,
-    checklists, activity_log, tags, nmap_import, reports,
+    checklists, activity_log, tags, assistant, nmap_import, reports,
 )
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -74,6 +74,7 @@ app.include_router(credentials.router, prefix="/api")
 app.include_router(checklists.router, prefix="/api")
 app.include_router(activity_log.router, prefix="/api")
 app.include_router(tags.router, prefix="/api")
+app.include_router(assistant.router, prefix="/api")
 app.include_router(nmap_import.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
 

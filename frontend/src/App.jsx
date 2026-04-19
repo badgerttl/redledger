@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
-import { EngagementProvider } from './context/EngagementContext';
+import { EngagementProvider, useEngagement } from './context/EngagementContext';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Scope from './pages/Scope';
@@ -12,7 +12,15 @@ import ToolOutput from './pages/ToolOutput';
 import Checklists from './pages/Checklists';
 import ActivityLog from './pages/ActivityLog';
 import Guides from './pages/Guides';
+import Assistant from './pages/Assistant';
+import Settings from './pages/Settings';
 import Report from './pages/Report';
+
+function LegacyAssistantRedirect() {
+  const { current } = useEngagement();
+  if (current?.id) return <Navigate to={`/e/${current.id}/assistant`} replace />;
+  return <Navigate to="/" replace />;
+}
 
 export default function App() {
   return (
@@ -35,6 +43,9 @@ export default function App() {
               <Route path="/e/:id/activity" element={<ActivityLog />} />
               <Route path="/e/:id/report" element={<Report />} />
               <Route path="/guides" element={<Guides />} />
+              <Route path="/assistant" element={<LegacyAssistantRedirect />} />
+              <Route path="/e/:id/assistant" element={<Assistant />} />
+              <Route path="/settings" element={<Settings />} />
               <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
           </div>

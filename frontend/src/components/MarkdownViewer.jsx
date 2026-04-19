@@ -1,6 +1,37 @@
+import { Component } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { isStructuredContent, formatStructuredContent } from '../utils/formatContent';
+
+/** Catches react-markdown / GFM render failures (e.g. odd edge-case markdown) so the app does not white-screen. */
+class MarkdownErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false };
+  }
+
+  static getDerivedStateFromError() {
+    return { hasError: true };
+  }
+
+  componentDidUpdate(prevProps) {
+    if (prevProps.content !== this.props.content) {
+      this.setState({ hasError: false });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      const text = this.props.content || '';
+      return (
+        <pre className="rounded-xl border border-border bg-input p-3 text-sm whitespace-pre-wrap break-words text-text-secondary">
+          {text}
+        </pre>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 export default function MarkdownViewer({ content }) {
   const text = content || '';
@@ -13,7 +44,9 @@ export default function MarkdownViewer({ content }) {
   }
   return (
     <div className="markdown-body">
-      <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+      <MarkdownErrorBoundary content={text}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{text}</ReactMarkdown>
+      </MarkdownErrorBoundary>
     </div>
   );
 }

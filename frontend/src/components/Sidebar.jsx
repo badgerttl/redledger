@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { NavLink, useParams, useNavigate } from 'react-router-dom';
 import { useEngagement } from '../context/EngagementContext';
 import clsx from 'clsx';
@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Target, Server, AlertTriangle, Key,
   Terminal, CheckSquare, Clock, BookOpen, FileText,
   ChevronLeft, ChevronRight, Shield, ChevronDown, Plus,
-  Sun, Moon, Palette, Folder,
+  Folder, MessageSquare, Settings,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -19,72 +19,17 @@ const NAV_ITEMS = [
   { to: '/checklists', icon: CheckSquare, label: 'Checklists' },
   { to: '/activity', icon: Clock, label: 'Activity Log' },
   { to: '/report', icon: FileText, label: 'Report' },
-];
-
-const COLOR_THEMES = [
-  { id: 'crimson', color: '#dc2626', label: 'Crimson' },
-  { id: 'blue', color: '#0ea5e9', label: 'Blue' },
-  { id: 'green', color: '#10b981', label: 'Green' },
-  { id: 'slate', color: '#64748b', label: 'Slate' },
+  { to: '/assistant', icon: MessageSquare, label: 'Assistant' },
 ];
 
 export default function Sidebar() {
   const [collapsed, setCollapsed] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [themeMenuOpen, setThemeMenuOpen] = useState(false);
-  const [dark, setDark] = useState(true);
-  const [colorTheme, setColorTheme] = useState('crimson');
-  const themeMenuRef = useRef(null);
   const { engagements, current, selectEngagement, setCurrent } = useEngagement();
   const { id } = useParams();
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const saved = localStorage.getItem('theme');
-    const isDark = saved ? saved === 'dark' : true;
-    setDark(isDark);
-    document.documentElement.classList.toggle('dark', isDark);
-
-    const savedColor = localStorage.getItem('colorTheme') || 'crimson';
-    setColorTheme(savedColor);
-    COLOR_THEMES.forEach(t => document.documentElement.classList.remove(`theme-${t.id}`));
-    if (savedColor !== 'crimson') {
-      document.documentElement.classList.add(`theme-${savedColor}`);
-    }
-  }, []);
-
-  const toggleTheme = () => {
-    const next = !dark;
-    setDark(next);
-    document.documentElement.classList.toggle('dark', next);
-    localStorage.setItem('theme', next ? 'dark' : 'light');
-  };
-
-  const switchColorTheme = (themeId) => {
-    COLOR_THEMES.forEach(t => {
-      document.documentElement.classList.remove(`theme-${t.id}`);
-    });
-    if (themeId !== 'crimson') {
-      document.documentElement.classList.add(`theme-${themeId}`);
-    }
-    setColorTheme(themeId);
-    localStorage.setItem('colorTheme', themeId);
-    setThemeMenuOpen(false);
-  };
-
-  useEffect(() => {
-    if (!themeMenuOpen) return;
-    const close = (e) => {
-      if (themeMenuRef.current && !themeMenuRef.current.contains(e.target)) {
-        setThemeMenuOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', close);
-    return () => document.removeEventListener('mousedown', close);
-  }, [themeMenuOpen]);
-
   const engId = id || current?.id;
-  const activeColorTheme = COLOR_THEMES.find((t) => t.id === colorTheme) ?? COLOR_THEMES[0];
 
   const handleSelect = (eid) => {
     selectEngagement(eid);
@@ -137,10 +82,7 @@ export default function Sidebar() {
           <div className="relative">
             <button
               type="button"
-              onClick={() => {
-                setThemeMenuOpen(false);
-                setDropdownOpen(!dropdownOpen);
-              }}
+              onClick={() => setDropdownOpen(!dropdownOpen)}
               className="flex w-full items-center justify-between gap-2 rounded-xl border border-sidebar-border/90 bg-white/[0.04] px-3 py-2.5 text-left text-xs font-medium text-sidebar-text transition-all hover:border-sidebar-text-muted/50 hover:bg-white/[0.07]"
             >
               <span className="min-w-0 truncate">{current?.name || 'Select engagement'}</span>
@@ -238,92 +180,23 @@ export default function Sidebar() {
           <BookOpen className="w-[1.05rem] h-[1.05rem] shrink-0" />
           {!collapsed && <span>Guides</span>}
         </NavLink>
+
+        <NavLink
+          to="/settings"
+          className={({ isActive }) =>
+            clsx(
+              'flex items-center gap-3 py-2 rounded-xl text-sm font-medium transition-all duration-200',
+              collapsed ? 'justify-center px-2 mx-0.5' : 'px-3 mx-0.5',
+              isActive
+                ? 'bg-accent/[0.14] text-accent shadow-[inset_0_0_0_1px_rgb(var(--color-accent)/0.22)]'
+                : 'text-sidebar-text-muted hover:text-sidebar-text hover:bg-white/[0.06]'
+            )
+          }
+        >
+          <Settings className="w-[1.05rem] h-[1.05rem] shrink-0" />
+          {!collapsed && <span>Settings</span>}
+        </NavLink>
       </nav>
-
-      {/* Accent theme (dropdown — works when sidebar is collapsed) */}
-      <div className="shrink-0 border-t border-sidebar-border/80 px-2 py-2">
-        <div ref={themeMenuRef} className="relative">
-          <button
-            type="button"
-            onClick={() => {
-              setDropdownOpen(false);
-              setThemeMenuOpen((o) => !o);
-            }}
-            className={clsx(
-              'flex w-full items-center rounded-xl border border-sidebar-border/90 bg-white/[0.04] text-xs font-medium text-sidebar-text transition-all hover:bg-white/[0.07]',
-              collapsed ? 'justify-center py-2.5' : 'justify-between gap-2 px-3 py-2.5',
-            )}
-            aria-expanded={themeMenuOpen}
-            aria-haspopup="listbox"
-            aria-label="Accent color"
-          >
-            {collapsed ? (
-              <Palette
-                className={clsx(
-                  'h-[1.1rem] w-[1.1rem] shrink-0',
-                  themeMenuOpen ? 'text-accent' : 'text-sidebar-text-muted',
-                )}
-              />
-            ) : (
-              <>
-                <span className="flex min-w-0 items-center gap-2">
-                  <span
-                    className="h-3.5 w-3.5 shrink-0 rounded-full shadow-sm ring-1 ring-white/15"
-                    style={{ backgroundColor: activeColorTheme.color }}
-                  />
-                  <span className="truncate">{activeColorTheme.label}</span>
-                </span>
-                <ChevronDown
-                  className={clsx(
-                    'h-3.5 w-3.5 shrink-0 text-sidebar-text-muted transition-transform duration-200',
-                    themeMenuOpen && 'rotate-180',
-                  )}
-                />
-              </>
-            )}
-          </button>
-          {themeMenuOpen && (
-            <div
-              className="absolute bottom-full left-0 right-0 z-[60] mb-1.5 overflow-hidden rounded-xl border border-border bg-card shadow-card backdrop-blur-md"
-              role="listbox"
-              aria-label="Choose accent color"
-            >
-              <div className="py-1">
-                {COLOR_THEMES.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    role="option"
-                    aria-selected={colorTheme === t.id}
-                    onClick={() => switchColorTheme(t.id)}
-                    className={clsx(
-                      'flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-xs transition-colors',
-                      colorTheme === t.id
-                        ? 'bg-accent/10 font-medium text-accent'
-                        : 'text-text-secondary hover:bg-black/[0.04] hover:text-text-primary dark:hover:bg-white/[0.06]',
-                    )}
-                  >
-                    <span
-                      className="h-3.5 w-3.5 shrink-0 rounded-full ring-1 ring-black/10 dark:ring-white/15"
-                      style={{ backgroundColor: t.color }}
-                    />
-                    <span>{t.label}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Dark/light toggle */}
-      <button
-        onClick={toggleTheme}
-        className="flex items-center justify-center gap-2 h-11 border-t border-sidebar-border/80 text-sidebar-text-muted hover:text-sidebar-text hover:bg-white/[0.04] transition-colors"
-      >
-        {dark ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-        {!collapsed && <span className="text-xs">{dark ? 'Light mode' : 'Dark mode'}</span>}
-      </button>
 
       {/* Collapse toggle */}
       <button
