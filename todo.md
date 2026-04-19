@@ -4,3 +4,6 @@
 
 # Add Finding export function
 * Add the ability to export findings as a spreadsheet.
+
+# Asset in Findings screen
+* Add the assets that are assigned to the Finding so they show in the default '/e/{id}/findings' page.
