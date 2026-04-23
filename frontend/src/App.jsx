@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { EngagementProvider, useEngagement } from './context/EngagementContext';
 import { SettingsProvider } from './context/SettingsContext';
+import { CodeReviewScanProvider } from './context/CodeReviewScanContext';
 import Sidebar from './components/Sidebar';
 import Dashboard from './pages/Dashboard';
 import Scope from './pages/Scope';
@@ -17,6 +18,7 @@ import Guides from './pages/Guides';
 import Assistant from './pages/Assistant';
 import Settings from './pages/Settings';
 import Report from './pages/Report';
+import CodeReview from './pages/CodeReview';
 
 
 function LegacyAssistantRedirect() {
@@ -28,6 +30,7 @@ function LegacyAssistantRedirect() {
 export default function App() {
   return (
     <SettingsProvider>
+    <CodeReviewScanProvider>
     <EngagementProvider>
       <div className="flex h-screen overflow-hidden">
         <Sidebar />
@@ -49,6 +52,7 @@ export default function App() {
 
               <Route path="/e/:id/report" element={<Report />} />
               <Route path="/guides" element={<Guides />} />
+              <Route path="/e/:id/code-review" element={<CodeReview />} />
               <Route path="/assistant" element={<LegacyAssistantRedirect />} />
               <Route path="/e/:id/assistant" element={<Assistant />} />
               <Route path="/settings" element={<Settings />} />
@@ -58,6 +62,7 @@ export default function App() {
         </main>
       </div>
     </EngagementProvider>
+    </CodeReviewScanProvider>
     </SettingsProvider>
   );
 }

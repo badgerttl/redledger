@@ -80,6 +80,8 @@ class Engagement(Base):
     tool_outputs = relationship("ToolOutput", back_populates="engagement", cascade="all, delete-orphan")
     checklist_items = relationship("ChecklistItem", back_populates="engagement", cascade="all, delete-orphan")
     activity_logs = relationship("ActivityLog", back_populates="engagement", cascade="all, delete-orphan")
+    code_review_results = relationship("CodeReviewResult", back_populates="engagement", cascade="all, delete-orphan")
+    semgrep_results = relationship("SemgrepResult", back_populates="engagement", cascade="all, delete-orphan")
 
 
 class Scope(Base):
@@ -208,6 +210,8 @@ class Credential(Base):
     source = Column(Text, default="")
     access_level = Column(String(100), default="")
     notes = Column(Text, default="")
+    status = Column(String(20), default="confirmed")  # confirmed | review
+    import_source = Column(String(100), default="")
     created_at = Column(DateTime, default=_utcnow)
 
     engagement = relationship("Engagement", back_populates="credentials")
@@ -262,6 +266,42 @@ class Tag(Base):
     findings = relationship("Finding", secondary=finding_tag, back_populates="tags")
     tool_outputs = relationship("ToolOutput", secondary=tool_output_tag, back_populates="tags")
     notes = relationship("Note", secondary=note_tag, back_populates="tags")
+
+
+class CodeReviewResult(Base):
+    __tablename__ = "code_review_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    engagement_id = Column(Integer, ForeignKey("engagements.id", ondelete="CASCADE"), nullable=False)
+    filename = Column(String(500), nullable=False)
+    content = Column(Text, default="")
+    created_at = Column(DateTime, default=_utcnow)
+
+    engagement = relationship("Engagement", back_populates="code_review_results")
+
+
+class SemgrepResult(Base):
+    __tablename__ = "semgrep_results"
+
+    id = Column(Integer, primary_key=True, index=True)
+    engagement_id = Column(Integer, ForeignKey("engagements.id", ondelete="CASCADE"), nullable=False)
+    check_id = Column(String(500), default="")
+    path = Column(String(500), default="")
+    line = Column(Integer, default=0)
+    col = Column(Integer, default=0)
+    message = Column(Text, default="")
+    severity = Column(String(20), default="")
+    lines = Column(Text, default="")
+    technology = Column(String(500), default="")
+    vulnerability_class = Column(String(255), default="")
+    likelihood = Column(String(50), default="")
+    impact = Column(String(50), default="")
+    confidence = Column(String(50), default="")
+    cwe = Column(Text, default="")
+    owasp = Column(Text, default="")
+    created_at = Column(DateTime, default=_utcnow)
+
+    engagement = relationship("Engagement", back_populates="semgrep_results")
 
 
 class ChatMessage(Base):

@@ -5,6 +5,7 @@ const DEFAULT_SETTINGS = {
   assistant_system_prompt: '',
   findings_gen_instructions: '',
   assistant_context_limit: '',
+  code_review_system_prompt: '',
 };
 
 const SettingsContext = createContext(null);

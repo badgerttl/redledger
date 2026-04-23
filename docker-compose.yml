@@ -13,8 +13,10 @@ services:
       - ./data:/app/data:Z
     environment:
       - DATA_DIR=/app/data
+      - SCAN_DIR=/app/data/scan
       # Use this if you are running Ollama on the same machine as Docker
       #- LLM_PROXY_URL=http://host.docker.internal:11434
       # Use this if you are running LM Studio on the same machine as Docker
       - LLM_PROXY_URL=http://host.docker.internal:1234
+      #- LLM_PROXY_URL=http://127.0.0.1:1234
     restart: unless-stopped

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import api from '../api/client';
 import toast from 'react-hot-toast';
 import ConfirmDialog from '../components/ConfirmDialog';
-import { Plus, Trash2, Eye, EyeOff, ShieldAlert, Pencil } from 'lucide-react';
+import { Plus, Trash2, Eye, EyeOff, ShieldAlert, Pencil, CheckCircle2 } from 'lucide-react';
 import MarkdownEditor from '../components/MarkdownEditor';
 
 const SECRET_TYPES = ['plaintext', 'ntlm', 'sha256', 'other'];
@@ -17,7 +17,7 @@ function FormFields({ values, onChange, assets }) {
       <div>
         <label className="label">Secret Type</label>
         <select className="input" value={values.secret_type} onChange={(e) => onChange({ ...values, secret_type: e.target.value })}>
-          {SECRET_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          {SECRET_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
       </div>
       <div><label className="label">Access Level</label><input className="input" placeholder="e.g. Admin, User..." value={values.access_level} onChange={(e) => onChange({ ...values, access_level: e.target.value })} /></div>
@@ -34,12 +34,12 @@ function FormFields({ values, onChange, assets }) {
 
 function AssetPicker({ allAssets, selected, onChange }) {
   const toggle = (assetId) => {
-    onChange(selected.includes(assetId) ? selected.filter(id => id !== assetId) : [...selected, assetId]);
+    onChange(selected.includes(assetId) ? selected.filter((id) => id !== assetId) : [...selected, assetId]);
   };
   if (allAssets.length === 0) return <span className="text-xs text-text-muted">No assets in this engagement</span>;
   return (
     <div className="flex flex-wrap gap-2">
-      {allAssets.map(a => {
+      {allAssets.map((a) => {
         const sel = selected.includes(a.id);
         return (
           <button
@@ -57,9 +57,109 @@ function AssetPicker({ allAssets, selected, onChange }) {
   );
 }
 
+function CredTable({ creds, assets, engagementId, editingId, editForm, setEditForm, onStartEdit, onUpdate, onCancelEdit, onDelete, onConfirm, showConfirm, revealed, onToggleReveal }) {
+  const navigate = useNavigate();
+  return (
+    <div className="card p-0 overflow-hidden">
+      <table className="w-full">
+        <thead>
+          <tr className="border-b border-border">
+            <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Username</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Secret</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Type</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Access</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Source</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Assets</th>
+            <th className="w-20"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {creds.map((c) =>
+            editingId === c.id ? (
+              <tr key={c.id} className="border-b border-border bg-white/[0.02]">
+                <td colSpan={7} className="px-4 py-4">
+                  <FormFields values={editForm} onChange={setEditForm} assets={assets} />
+                  <div className="flex gap-2">
+                    <button onClick={onUpdate} className="btn-primary text-xs">Save</button>
+                    <button onClick={onCancelEdit} className="btn-secondary text-xs">Cancel</button>
+                  </div>
+                </td>
+              </tr>
+            ) : (
+              <tr
+                key={c.id}
+                className="table-row cursor-pointer group"
+                onClick={() => navigate(`/e/${engagementId}/credentials/${c.id}`, { state: { from: `/e/${engagementId}/credentials`, fromLabel: 'Credentials' } })}
+              >
+                <td className="px-4 py-3 text-sm font-mono text-text-primary">{c.username || '—'}</td>
+                <td className="px-4 py-3 text-sm font-mono">
+                  <div className="flex items-center gap-2">
+                    <span className="text-text-secondary">{revealed[c.id] ? c.secret : '••••••••'}</span>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onToggleReveal(c.id); }}
+                      className="text-text-muted hover:text-text-primary transition-colors"
+                    >
+                      {revealed[c.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
+                </td>
+                <td className="px-4 py-3 text-sm">
+                  <span className="px-2 py-0.5 rounded text-xs bg-accent/10 text-accent">{c.secret_type}</span>
+                </td>
+                <td className="px-4 py-3 text-sm text-text-secondary">{c.access_level || '—'}</td>
+                <td className="px-4 py-3 text-sm text-text-secondary max-w-[180px] truncate">{c.source || '—'}</td>
+                <td className="px-4 py-3 text-sm text-text-secondary">
+                  {c.assets?.length
+                    ? (
+                      <div className="flex flex-col gap-0.5">
+                        {c.assets.map((a) => (
+                          <span key={a.id} className="block">
+                            {a.name}{a.target ? <span className="text-text-muted font-mono text-xs"> ({a.target})</span> : ''}
+                          </span>
+                        ))}
+                      </div>
+                    )
+                    : '—'}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    {showConfirm && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); onConfirm(c.id); }}
+                        className="text-text-muted hover:text-green-400 transition-colors"
+                        title="Confirm credential"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onStartEdit(c); }}
+                      className="text-text-muted hover:text-accent transition-colors"
+                    >
+                      <Pencil className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); onDelete(c.id); }}
+                      className="text-text-muted hover:text-red-400 transition-colors"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            )
+          )}
+          {creds.length === 0 && (
+            <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-text-muted">None</td></tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 export default function Credentials() {
   const { id } = useParams();
-  const navigate = useNavigate();
   const [credentials, setCredentials] = useState([]);
   const [assets, setAssets] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -69,7 +169,7 @@ export default function Credentials() {
   const [revealed, setRevealed] = useState({});
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [refresh, setRefresh] = useState(0);
-  const reload = () => setRefresh(r => r + 1);
+  const reload = () => setRefresh((r) => r + 1);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -121,6 +221,14 @@ export default function Credentials() {
     } catch (err) { toast.error(err.message); }
   };
 
+  const handleConfirm = async (credId) => {
+    try {
+      await api.post(`/credentials/${credId}/confirm`);
+      toast.success('Confirmed');
+      reload();
+    } catch (err) { toast.error(err.message); }
+  };
+
   const confirmDelete = async (credId) => {
     try {
       await api.delete(`/credentials/${credId}`);
@@ -128,6 +236,27 @@ export default function Credentials() {
       setDeleteTarget(null);
       reload();
     } catch (err) { toast.error(err.message); }
+  };
+
+  const toggleReveal = (credId) => {
+    setRevealed((prev) => ({ ...prev, [credId]: !prev[credId] }));
+  };
+
+  const confirmed = credentials.filter((c) => c.status !== 'review');
+  const review = credentials.filter((c) => c.status === 'review');
+
+  const tableProps = {
+    assets,
+    engagementId: id,
+    editingId,
+    editForm,
+    setEditForm,
+    onStartEdit: startEdit,
+    onUpdate: handleUpdate,
+    onCancelEdit: () => setEditingId(null),
+    onDelete: (credId) => setDeleteTarget(credId),
+    revealed,
+    onToggleReveal: toggleReveal,
   };
 
   return (
@@ -152,84 +281,38 @@ export default function Credentials() {
 
       <div className="flex items-start gap-2.5 px-4 py-3 mb-4 rounded-md border border-border bg-card text-xs text-text-secondary">
         <ShieldAlert className="w-4 h-4 text-text-muted shrink-0 mt-0.5" />
-        <span>Credentials are stored unencrypted in the local database. For extra-sensitive secrets (domain admin, production keys, etc.), use a dedicated password vault and reference it here instead.</span>
+        <span>Credentials are stored unencrypted in the local database. For extra-sensitive secrets, use a dedicated password vault and reference it here instead.</span>
       </div>
 
-      <div className="card p-0 overflow-hidden">
-        <table className="w-full">
-          <thead>
-            <tr className="border-b border-border">
-              <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Username</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Secret</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Type</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Access</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Source</th>
-              <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">Assets</th>
-              <th className="w-16"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {credentials.map((c) => (
-              editingId === c.id ? (
-                <tr key={c.id} className="border-b border-border bg-white/[0.02]">
-                  <td colSpan={7} className="px-4 py-4">
-                    <FormFields values={editForm} onChange={setEditForm} assets={assets} />
-                    <div className="flex gap-2">
-                      <button onClick={handleUpdate} className="btn-primary text-xs">Save</button>
-                      <button onClick={() => setEditingId(null)} className="btn-secondary text-xs">Cancel</button>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                <tr key={c.id} className="table-row cursor-pointer group" onClick={() => navigate(`/e/${id}/credentials/${c.id}`, { state: { from: `/e/${id}/credentials`, fromLabel: 'Credentials' } })}>
-                  <td className="px-4 py-3 text-sm font-mono text-text-primary">{c.username || '—'}</td>
-                  <td className="px-4 py-3 text-sm font-mono">
-                    <div className="flex items-center gap-2">
-                      <span className="text-text-secondary">{revealed[c.id] ? c.secret : '••••••••'}</span>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); toggleReveal(c.id); }}
-                        className="text-text-muted hover:text-text-primary transition-colors"
-                      >
-                        {revealed[c.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
-                      </button>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-sm">
-                    <span className="px-2 py-0.5 rounded text-xs bg-accent/10 text-accent">{c.secret_type}</span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-text-secondary">{c.access_level || '—'}</td>
-                  <td className="px-4 py-3 text-sm text-text-secondary">{c.source || '—'}</td>
-                  <td className="px-4 py-3 text-sm text-text-secondary">
-                    {c.assets?.length
-                      ? (
-                        <div className="flex flex-col gap-0.5">
-                          {c.assets.map((a) => (
-                            <span key={a.id} className="block">
-                              {a.name}{a.target ? <span className="text-text-muted font-mono text-xs"> ({a.target})</span> : ''}
-                            </span>
-                          ))}
-                        </div>
-                      )
-                      : '—'}
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={(e) => { e.stopPropagation(); startEdit(c); }} className="text-text-muted hover:text-accent transition-colors">
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                      <button onClick={(e) => { e.stopPropagation(); setDeleteTarget(c.id); }} className="text-text-muted hover:text-red-400 transition-colors">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              )
-            ))}
-            {credentials.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-text-muted">No credentials yet</td></tr>
-            )}
-          </tbody>
-        </table>
+      {/* Review section */}
+      {review.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-2">
+            <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">Review ({review.length})</h2>
+            <span className="text-xs text-text-muted">— imported from tool output, pending confirmation</span>
+          </div>
+          <CredTable
+            creds={review}
+            showConfirm={true}
+            onConfirm={handleConfirm}
+            {...tableProps}
+          />
+        </div>
+      )}
+
+      {/* Confirmed section */}
+      <div>
+        {review.length > 0 && (
+          <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide mb-2">
+            Confirmed ({confirmed.length})
+          </h2>
+        )}
+        <CredTable
+          creds={confirmed}
+          showConfirm={false}
+          onConfirm={null}
+          {...tableProps}
+        />
       </div>
 
       <ConfirmDialog
@@ -241,8 +324,4 @@ export default function Credentials() {
       />
     </div>
   );
-
-  function toggleReveal(credId) {
-    setRevealed(prev => ({ ...prev, [credId]: !prev[credId] }));
-  }
 }

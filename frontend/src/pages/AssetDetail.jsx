@@ -8,7 +8,7 @@ import TagBadge from '../components/TagBadge';
 import AttachmentGallery from '../components/AttachmentGallery';
 import SeverityBadge from '../components/SeverityBadge';
 import StatusBadge from '../components/StatusBadge';
-import { ArrowLeft, Plus, Trash2, StickyNote, Pencil, Check, X, Copy, ShieldAlert, KeyRound, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, StickyNote, Pencil, Check, X, Copy, ShieldAlert, KeyRound, Eye, EyeOff, ChevronDown, ChevronRight } from 'lucide-react';
 import ReconRecommendations from '../components/ReconRecommendations';
 import AssetChat from '../components/AssetChat';
 
@@ -31,6 +31,8 @@ export default function AssetDetail() {
   const [newNoteEditorKey, setNewNoteEditorKey] = useState(0);
   const [editingNote, setEditingNote] = useState(null);
   const [editingNoteBody, setEditingNoteBody] = useState('');
+  const [expandedNotes, setExpandedNotes] = useState(new Set());
+  const [noteFilter, setNoteFilter] = useState('');
   const [editingField, setEditingField] = useState(null);
   const [editValue, setEditValue] = useState('');
   const [allTags, setAllTags] = useState([]);
@@ -118,9 +120,10 @@ export default function AssetDetail() {
   const addNote = async () => {
     if (!newNote.trim()) return;
     try {
-      await api.post(`/assets/${assetId}/notes`, { body: newNote });
+      const { data } = await api.post(`/assets/${assetId}/notes`, { body: newNote });
       setNewNote('');
       setNewNoteEditorKey((k) => k + 1);
+      setExpandedNotes((prev) => new Set([...prev, data.id]));
       load();
       toast.success('Note added');
     } catch (err) { toast.error(err.message); }
@@ -422,38 +425,81 @@ export default function AssetDetail() {
       {/* Notes — full width; saved notes first, composer below */}
       <div className="mb-8">
         <h2 className="text-base font-medium mb-3 flex items-center gap-2"><StickyNote className="w-4 h-4" /> Notes</h2>
+        {notes.length > 1 && (
+          <input
+            type="text"
+            className="input text-sm mb-3"
+            placeholder="Filter notes…"
+            value={noteFilter}
+            onChange={(e) => setNoteFilter(e.target.value)}
+          />
+        )}
         <div className="space-y-3 mb-6">
-          {notes.map((n) => (
-            <div key={n.id} className="card">
-              {editingNote === n.id ? (
-                <div>
-                  <MarkdownEditor
-                    value={editingNoteBody}
-                    onChange={setEditingNoteBody}
-                    minHeight="120px"
-                    id={`note-edit-${n.id}`}
-                  />
-                  <div className="flex gap-2 mt-2">
-                    <button onClick={() => updateNote(n.id, editingNoteBody)} className="btn-primary text-xs">Save</button>
-                    <button onClick={() => { setEditingNote(null); setEditingNoteBody(''); }} className="btn-secondary text-xs">Cancel</button>
+          {notes.filter((n) => {
+            if (!noteFilter.trim()) return true;
+            const t = (n.body || '').toLowerCase();
+            return noteFilter.toLowerCase().split(/\s+/).every((w) => t.includes(w));
+          }).map((n) => {
+            const isExpanded = expandedNotes.has(n.id);
+            const isEditing = editingNote === n.id;
+            const firstLine = (() => {
+              const line = (n.body || '').split('\n').find((l) => l.trim()) || '';
+              return line.replace(/^#{1,6}\s*/, '').replace(/[*_`~[\]]/g, '').trim().slice(0, 160) || 'Empty note';
+            })();
+            const toggleExpand = () =>
+              setExpandedNotes((prev) => {
+                const next = new Set(prev);
+                next.has(n.id) ? next.delete(n.id) : next.add(n.id);
+                return next;
+              });
+            return (
+              <div key={n.id} className="card overflow-hidden">
+                {/* Collapse header — always visible */}
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={toggleExpand}
+                    className="flex w-full items-center gap-2 text-left"
+                  >
+                    {isExpanded
+                      ? <ChevronDown className="w-3.5 h-3.5 shrink-0 text-text-muted" />
+                      : <ChevronRight className="w-3.5 h-3.5 shrink-0 text-text-muted" />}
+                    <span className="min-w-0 flex-1 truncate text-sm text-text-secondary">{firstLine}</span>
+                    <span className="shrink-0 text-2xs text-text-muted">{new Date(n.created_at).toLocaleString()}</span>
+                  </button>
+                )}
+                {/* Expanded / editing body */}
+                {(isExpanded || isEditing) && (
+                  <div className={!isEditing ? 'mt-3 border-t border-border pt-3' : ''}>
+                    {isEditing ? (
+                      <div>
+                        <MarkdownEditor
+                          value={editingNoteBody}
+                          onChange={setEditingNoteBody}
+                          minHeight="120px"
+                          id={`note-edit-${n.id}`}
+                        />
+                        <div className="flex gap-2 mt-2">
+                          <button onClick={() => updateNote(n.id, editingNoteBody)} className="btn-primary text-xs">Save</button>
+                          <button onClick={() => { setEditingNote(null); setEditingNoteBody(''); }} className="btn-secondary text-xs">Cancel</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div>
+                        <MarkdownViewer content={n.body} />
+                        <div className="flex items-center justify-end mt-2 pt-2 border-t border-border gap-2">
+                          <button onClick={() => { setEditingNote(n.id); setEditingNoteBody(n.body); }} className="btn-ghost text-xs">Edit</button>
+                          <button onClick={() => deleteNote(n.id)} className="text-text-muted hover:text-red-400 transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ) : (
-                <div>
-                  <MarkdownViewer content={n.body} />
-                  <div className="flex items-center justify-between mt-2 pt-2 border-t border-border">
-                    <span className="text-2xs text-text-muted">{new Date(n.created_at).toLocaleString()}</span>
-                    <div className="flex gap-2">
-                      <button onClick={() => { setEditingNote(n.id); setEditingNoteBody(n.body); }} className="btn-ghost text-xs">Edit</button>
-                      <button onClick={() => deleteNote(n.id)} className="text-text-muted hover:text-red-400 transition-colors">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          ))}
+                )}
+              </div>
+            );
+          })}
           {notes.length === 0 && <p className="text-sm text-text-muted">No notes yet</p>}
         </div>
         <div>

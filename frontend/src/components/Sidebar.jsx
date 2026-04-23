@@ -6,7 +6,7 @@ import {
   LayoutDashboard, Server, AlertTriangle, Key,
   Terminal, CheckSquare, Clock, BookOpen, FileText,
   ChevronLeft, ChevronRight, Shield, ChevronDown, Plus,
-  Folder, MessageSquare, Settings,
+  Folder, MessageSquare, Settings, ScanLine,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -20,6 +20,7 @@ const NAV_ITEMS = [
 
   { to: '/report', icon: FileText, label: 'Report' },
   { to: '/assistant', icon: MessageSquare, label: 'Assistant' },
+  { to: '/code-review', icon: ScanLine, label: 'Code Review' },
 ];
 
 export default function Sidebar() {

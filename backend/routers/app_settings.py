@@ -7,7 +7,7 @@ from backend.models import Setting
 
 router = APIRouter(tags=["settings"])
 
-KNOWN_KEYS = {"assistant_system_prompt", "findings_gen_instructions", "assistant_context_limit"}
+KNOWN_KEYS = {"assistant_system_prompt", "findings_gen_instructions", "assistant_context_limit", "code_review_system_prompt"}
 
 
 def _all_settings(db: Session) -> dict:
@@ -27,6 +27,7 @@ class SettingsPatch(BaseModel):
     assistant_system_prompt: str | None = None
     findings_gen_instructions: str | None = None
     assistant_context_limit: str | None = None
+    code_review_system_prompt: str | None = None
 
 
 @router.patch("/settings")

@@ -17,6 +17,8 @@ class CredentialCreate(BaseModel):
     source: str = ""
     access_level: str = ""
     notes: str = ""
+    status: str = "confirmed"
+    import_source: str = ""
     asset_ids: list[int] = []
 
 
@@ -27,6 +29,7 @@ class CredentialUpdate(BaseModel):
     source: Optional[str] = None
     access_level: Optional[str] = None
     notes: Optional[str] = None
+    status: Optional[str] = None
     asset_ids: Optional[list[int]] = None
 
 
@@ -42,6 +45,8 @@ def _serialize(c: Credential) -> dict:
         "source": c.source,
         "access_level": c.access_level,
         "notes": c.notes,
+        "status": c.status or "confirmed",
+        "import_source": c.import_source or "",
         "created_at": c.created_at.isoformat() if c.created_at else None,
     }
 
@@ -108,6 +113,17 @@ def list_credentials_for_asset(asset_id: int, db: Session = Depends(get_db)):
         .all()
     )
     return [_serialize(c) for c in creds]
+
+
+@router.post("/credentials/{credential_id}/confirm")
+def confirm_credential(credential_id: int, db: Session = Depends(get_db)):
+    cred = db.query(Credential).options(selectinload(Credential.assets)).filter(Credential.id == credential_id).first()
+    if not cred:
+        raise HTTPException(404, "Credential not found")
+    cred.status = "confirmed"
+    db.commit()
+    db.refresh(cred)
+    return _serialize(cred)
 
 
 @router.delete("/credentials/{credential_id}", status_code=204)

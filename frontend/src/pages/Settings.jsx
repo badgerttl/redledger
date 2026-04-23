@@ -5,7 +5,7 @@ import clsx from 'clsx';
 import { Settings as SettingsIcon, Sun, Moon, Download, Upload, Loader2 } from 'lucide-react';
 import api from '../api/client';
 import { DEFAULT_ASSISTANT_CONTEXT_TOKENS } from '../assistant/storageKeys';
-import { COLOR_THEMES, applyColorTheme, applyDarkMode } from '../theme/documentTheme';
+import { COLOR_THEMES, applyColorTheme, applyDarkMode, applyFontSize } from '../theme/documentTheme';
 import { useEngagement } from '../context/EngagementContext';
 import { useSettings } from '../context/SettingsContext';
 
@@ -15,9 +15,11 @@ export default function Settings() {
   const { settings, loaded, updateSettings } = useSettings();
   const [dark, setDark] = useState(() => document.documentElement.classList.contains('dark'));
   const [colorTheme, setColorTheme] = useState(() => localStorage.getItem('colorTheme') || 'crimson');
+  const [fontSizeStep, setFontSizeStep] = useState(() => Number(localStorage.getItem('fontSizeStep') || 0));
   const [systemPrompt, setSystemPrompt] = useState('');
   const [contextLimit, setContextLimit] = useState('');
   const [findingsGenInstructions, setFindingsGenInstructions] = useState('');
+  const [codeReviewInstructions, setCodeReviewInstructions] = useState('');
 
   // Export / import state (engagement list comes from EngagementContext so Sidebar / Dashboard stay in sync)
   const [exportEngagementId, setExportEngagementId] = useState('');
@@ -31,6 +33,7 @@ export default function Settings() {
     setSystemPrompt(settings.assistant_system_prompt || '');
     setContextLimit(settings.assistant_context_limit || '');
     setFindingsGenInstructions(settings.findings_gen_instructions || '');
+    setCodeReviewInstructions(settings.code_review_system_prompt || '');
   }, [loaded, settings]);
 
   useEffect(() => {
@@ -55,6 +58,13 @@ export default function Settings() {
     setColorTheme(id);
     applyColorTheme(id);
     localStorage.setItem('colorTheme', id);
+  };
+
+  const changeFontSize = (delta) => {
+    const next = Math.max(0, Math.min(5, fontSizeStep + delta));
+    setFontSizeStep(next);
+    applyFontSize(next);
+    localStorage.setItem('fontSizeStep', String(next));
   };
 
   const handleExport = async () => {
@@ -119,6 +129,21 @@ export default function Settings() {
     }
   };
 
+  const CODE_REVIEW_DEFAULT = `You are an offensive security researcher conducting an authorized penetration test. Analyze the provided code for security vulnerabilities from an attacker's perspective.
+
+For each vulnerability found, provide:
+1. Vulnerability type and severity (Critical / High / Medium / Low)
+2. Exact location — file line number and character position (e.g. Line 42, Col 8), plus the function or method name
+3. Vulnerable code block — include a fenced code block containing the specific function, method, or section where the issue was identified
+4. Attack vector — how an attacker would discover and trigger this vulnerability
+5. Exploitation steps — a concrete, step-by-step exploitation path including example payloads, proof-of-concept code, or curl commands where applicable
+6. Impact — what an attacker achieves (RCE, auth bypass, data exfiltration, privilege escalation, etc.)
+7. Chaining opportunities — how this vulnerability could be combined with others to escalate impact
+
+Prioritize: injection flaws (SQLi, CMDi, SSTI, XXE), authentication bypasses, broken access control, insecure deserialization, SSRF, path traversal, hardcoded secrets/credentials, dangerous function calls, race conditions, and logic flaws.
+
+Be specific and technical. Include actual exploit payloads where possible. Do not suggest remediation — focus exclusively on attack surface and exploitation.`;
+
   return (
     <div>
       <div className="page-header">
@@ -168,6 +193,29 @@ export default function Settings() {
                     {t.label}
                   </button>
                 ))}
+              </div>
+            </div>
+            <div>
+              <p className="label mb-2">Font size</p>
+              <div className="flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => changeFontSize(-1)}
+                  disabled={fontSizeStep === 0}
+                  className="btn-secondary h-8 w-8 p-0 text-base font-medium disabled:opacity-40"
+                  title="Decrease font size"
+                >−</button>
+                <span className="min-w-[4rem] text-center text-sm tabular-nums text-text-secondary">
+                  {fontSizeStep === 0 ? 'Default' : `+${fontSizeStep}`}
+                  {fontSizeStep > 0 && <span className="ml-1 text-xs text-text-muted">({100 + fontSizeStep * 10}%)</span>}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => changeFontSize(1)}
+                  disabled={fontSizeStep === 5}
+                  className="btn-secondary h-8 w-8 p-0 text-base font-medium disabled:opacity-40"
+                  title="Increase font size"
+                >+</button>
               </div>
             </div>
           </div>
@@ -254,6 +302,50 @@ export default function Settings() {
                 className="btn-primary text-sm"
               >
                 Save finding generation settings
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Code Review</h2>
+          <div className="card space-y-3">
+            <div>
+              <label htmlFor="code-review-instructions" className="label">
+                System Instructions
+              </label>
+              <p className="mb-2 text-xs text-text-muted">
+                Sent as a <span className="font-mono">system</span> message on every Code Review request. Leave empty to use the built-in offensive security default.
+              </p>
+              <textarea
+                id="code-review-instructions"
+                className="textarea min-h-[200px] font-mono text-sm"
+                value={codeReviewInstructions}
+                onChange={(e) => setCodeReviewInstructions(e.target.value)}
+                placeholder={CODE_REVIEW_DEFAULT}
+              />
+            </div>
+            <div className="flex items-center justify-between">
+              <button
+                type="button"
+                onClick={() => setCodeReviewInstructions(CODE_REVIEW_DEFAULT)}
+                className="btn-ghost text-xs text-text-muted"
+              >
+                Reset to default
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    await updateSettings({ code_review_system_prompt: codeReviewInstructions.trim() });
+                    toast.success('Code review settings saved');
+                  } catch {
+                    toast.error('Failed to save settings');
+                  }
+                }}
+                className="btn-primary text-sm"
+              >
+                Save code review settings
               </button>
             </div>
           </div>

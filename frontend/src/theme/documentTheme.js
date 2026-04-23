@@ -19,6 +19,11 @@ export function applyDarkMode(isDark) {
   document.documentElement.classList.toggle('dark', isDark);
 }
 
+export function applyFontSize(step) {
+  const pct = 100 + (Number(step) || 0) * 10;
+  document.documentElement.style.fontSize = pct === 100 ? '' : `${pct}%`;
+}
+
 /** Run before React mount — matches previous main.jsx behavior. */
 export function initDocumentThemeFromStorage() {
   const savedTheme = localStorage.getItem('theme');
@@ -29,4 +34,5 @@ export function initDocumentThemeFromStorage() {
   }
 
   applyColorTheme(localStorage.getItem('colorTheme') || 'crimson');
+  applyFontSize(localStorage.getItem('fontSizeStep') || 0);
 }
