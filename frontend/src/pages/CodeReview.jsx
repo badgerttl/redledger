@@ -711,7 +711,7 @@ export default function CodeReview() {
   const uploadDirInputRef = useRef(null);
 
   // Scan state lives in context — survives navigation away and back
-  const { results, setResults, scanning, setScanning, scanEngagementId, setScanEngagementId, abortRef, keyCounterRef } = useCodeReviewScan();
+  const { results, setResults, scanning, setScanning, scanEngagementId, setScanEngagementId, resultsEngagementId, setResultsEngagementId, abortRef, keyCounterRef } = useCodeReviewScan();
 
   const [noteModal, setNoteModal] = useState(null);
   const [resultFilter, setResultFilter] = useState('');
@@ -799,7 +799,9 @@ export default function CodeReview() {
 
   useEffect(() => {
     if (!engagementId) return;
-    if (scanEngagementId === engagementId && scanning) return;
+    // Already loaded results for this engagement — don't clobber context (avoids disappearing
+    // results when navigating away and back, especially for unsaved 'done' entries).
+    if (resultsEngagementId === engagementId) return;
     api.get(`/code-scanner/results/${engagementId}`)
       .then(({ data }) => {
         setResults(data.map((r) => ({
@@ -811,6 +813,7 @@ export default function CodeReview() {
           expanded: false,
           createdAt: r.created_at,
         })));
+        setResultsEngagementId(engagementId);
       })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1036,6 +1039,7 @@ export default function CodeReview() {
 
     abortRef.current = null;
     setScanning(false);
+    setResultsEngagementId(engagementId);
   };
 
   const reprocessResult = async (result) => {
@@ -1110,16 +1114,32 @@ export default function CodeReview() {
     setResults((prev) => prev.filter((r) => r.key !== result.key));
   };
 
-  const saveMarkdown = () => {
-    if (results.length === 0) return;
-    const md = buildMarkdown(results.filter((r) => r.content));
+  const saveMarkdown = (onlyFindings = false) => {
+    const toExport = results.filter((r) => {
+      if (!r.content) return false;
+      if (onlyFindings) return parseSeverities(r.content).length > 0;
+      return true;
+    });
+    if (toExport.length === 0) { toast('No results to export'); return; }
+    const md = buildMarkdown(toExport);
     const blob = new Blob([md], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `code-review-${new Date().toISOString().slice(0, 10)}.md`;
+    a.download = `code-review-${onlyFindings ? 'findings-' : ''}${new Date().toISOString().slice(0, 10)}.md`;
     a.click();
     URL.revokeObjectURL(url);
+  };
+
+  const clearAllResults = async () => {
+    const savedIds = results.filter((r) => r.id).map((r) => r.id);
+    try {
+      await Promise.all(savedIds.map((id) => api.delete(`/code-scanner/results/${id}`)));
+    } catch {
+      toast.error('Some results could not be deleted from DB');
+    }
+    setResults([]);
+    setResultsEngagementId(null);
   };
 
   const toggleExpand = (key) => {
@@ -1145,10 +1165,16 @@ export default function CodeReview() {
           </p>
         </div>
         {doneResults.length > 0 && (
-          <button type="button" onClick={saveMarkdown} className="btn-secondary flex items-center gap-2 text-sm">
-            <Save className="h-4 w-4" />
-            Save All as Markdown
-          </button>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={() => saveMarkdown(true)} className="btn-secondary flex items-center gap-2 text-sm">
+              <Save className="h-4 w-4" />
+              Save Findings
+            </button>
+            <button type="button" onClick={() => saveMarkdown(false)} className="btn-secondary flex items-center gap-2 text-sm">
+              <Save className="h-4 w-4" />
+              Save All
+            </button>
+          </div>
         )}
       </div>
 
@@ -1376,6 +1402,13 @@ export default function CodeReview() {
                   {fileFilter.trim()
                     ? ` · showing ${filteredFileList.length} of ${fileList.length}`
                     : ` of ${fileList.length}`}
+                  {(() => {
+                    const dir = scanDirs.find((d) => d.name === selectedScanDir);
+                    const total = dir?.file_count;
+                    return total && total > fileList.length
+                      ? ` · ${total - fileList.length} non-code files excluded`
+                      : null;
+                  })()}
                 </span>
                 <button type="button" onClick={toggleAll} className="btn-ghost text-xs text-text-muted">
                   {filteredFileList.some((f) => selected[f.path]) ? 'Deselect all' : 'Select all'}
@@ -1432,16 +1465,33 @@ export default function CodeReview() {
       {/* Results */}
       {results.length > 0 && (
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="text-sm font-semibold text-text-secondary uppercase tracking-wide">
               Results ({filteredResults.length}{resultFilter ? ` of ${results.length}` : ''})
             </h2>
-            {doneResults.length > 0 && (
-              <button type="button" onClick={saveMarkdown} className="btn-ghost flex items-center gap-2 text-xs text-text-muted">
-                <Save className="h-3.5 w-3.5" />
-                Save as Markdown
+            <div className="flex items-center gap-2">
+              {doneResults.length > 0 && (
+                <>
+                  <button type="button" onClick={() => saveMarkdown(true)} className="btn-ghost flex items-center gap-1.5 text-xs text-text-muted">
+                    <Save className="h-3.5 w-3.5" />
+                    Save Findings
+                  </button>
+                  <button type="button" onClick={() => saveMarkdown(false)} className="btn-ghost flex items-center gap-1.5 text-xs text-text-muted">
+                    <Save className="h-3.5 w-3.5" />
+                    Save All
+                  </button>
+                </>
+              )}
+              <button
+                type="button"
+                onClick={clearAllResults}
+                disabled={scanning}
+                className="btn-ghost flex items-center gap-1.5 text-xs text-red-400 hover:text-red-300 disabled:opacity-40"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Clear All
               </button>
-            )}
+            </div>
           </div>
           <input
             type="text"
