@@ -1,22 +1,26 @@
-"""Code Scanner — list directory files and stream LLM vulnerability analysis."""
+"""Code Scanner — background LLM vulnerability analysis with job queue."""
 
+import asyncio
 import json
 import os
 import shutil
 from pathlib import Path
-from typing import AsyncIterator, List
+from typing import AsyncIterator, List, Optional
 
 import httpx
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from backend.database import get_db
-from backend.models import CodeReviewResult
+from backend.database import SessionLocal, get_db
+from backend.models import CodeReviewResult, ScanJob, ScanJobFile
 from backend.routers.assistant import DEFAULT_TIMEOUT, _llm_base_url, _lm_studio_auth_headers
 
 router = APIRouter(prefix="/code-scanner", tags=["code_scanner"])
+
+# job_id → asyncio.Task (in-process only; cleared on restart)
+_running_tasks: dict[int, asyncio.Task] = {}
 
 
 def _scan_dir() -> str:
@@ -29,7 +33,6 @@ def get_config():
 
 
 def _safe_subpath(name: str) -> Path:
-    """Resolve name under SCAN_DIR, reject path traversal."""
     base = Path(_scan_dir()).resolve()
     target = (base / name).resolve()
     if not str(target).startswith(str(base) + os.sep) and target != base:
@@ -39,7 +42,6 @@ def _safe_subpath(name: str) -> Path:
 
 @router.get("/scan-directories")
 def list_scan_directories():
-    """List top-level directories inside SCAN_DIR."""
     base = Path(_scan_dir())
     base.mkdir(parents=True, exist_ok=True)
     dirs = []
@@ -55,7 +57,6 @@ def list_scan_directories():
 
 @router.post("/upload-directory")
 async def upload_directory(request: Request):
-    """Upload a folder (files + relative paths) into SCAN_DIR/{folder_name}/."""
     form = await request.form(max_files=50_000, max_fields=50_000)
     files = form.getlist("files")
     paths_json = form.get("paths_json", "")
@@ -66,20 +67,16 @@ async def upload_directory(request: Request):
     if not files or not paths or len(files) != len(paths):
         raise HTTPException(400, f"files={len(files)} paths={len(paths)} — must be equal and non-empty")
 
-    # Derive folder name from first path segment of first file
     first_rel = paths[0].lstrip("/")
     folder_name = Path(first_rel).parts[0] if Path(first_rel).parts else "upload"
-
     dest_root = _safe_subpath(folder_name)
 
     uploaded = 0
     skipped = 0
     for upload_file, rel_path in zip(files, paths):
         rel = Path(rel_path.lstrip("/"))
-        # Strip leading folder component so files land in dest_root directly
         parts = rel.parts
         sub = Path(*parts[1:]) if len(parts) > 1 else Path(parts[0])
-        # Safety: reject traversal in any part
         if any(part in ("..", "") for part in sub.parts):
             skipped += 1
             continue
@@ -97,13 +94,13 @@ async def upload_directory(request: Request):
 
 @router.delete("/scan-directory/{name}", status_code=204)
 def delete_scan_directory(name: str):
-    """Delete a top-level directory from SCAN_DIR."""
     target = _safe_subpath(name)
     if not target.exists():
         raise HTTPException(404, f"Directory not found: {name}")
     if not target.is_dir():
         raise HTTPException(400, "Not a directory")
     shutil.rmtree(target)
+
 
 SCAN_EXTENSIONS = {
     ".py", ".js", ".ts", ".jsx", ".tsx", ".java", ".go", ".rs", ".rb", ".php",
@@ -127,13 +124,6 @@ class DirectoryRequest(BaseModel):
 
 class FileRequest(BaseModel):
     path: str
-
-
-class ScanRequest(BaseModel):
-    model: str
-    system_prompt: str
-    filename: str
-    content: str
 
 
 @router.post("/list-files")
@@ -180,52 +170,263 @@ def read_file(body: FileRequest):
     return {"content": content, "path": str(p)}
 
 
-@router.post("/scan-file")
-async def scan_file(body: ScanRequest):
-    base = _llm_base_url()
-    if not base:
-        raise HTTPException(503, "LLM_PROXY_URL is not set.")
+# ── Background LLM runner ─────────────────────────────────────────────────────
 
+async def _call_llm_full(base_url: str, auth_headers: dict, model: str,
+                          system_prompt: str, filename: str, content: str) -> str:
     messages = []
-    if body.system_prompt.strip():
-        messages.append({"role": "system", "content": body.system_prompt.strip()})
-    messages.append({
-        "role": "user",
-        "content": f"File: `{body.filename}`\n\n```\n{body.content}\n```",
-    })
+    if system_prompt.strip():
+        messages.append({"role": "system", "content": system_prompt.strip()})
+    messages.append({"role": "user", "content": f"File: `{filename}`\n\n```\n{content}\n```"})
 
-    payload = {"model": body.model, "messages": messages, "stream": True}
-    upstream = f"{base}/v1/chat/completions"
+    payload = {"model": model, "messages": messages, "stream": True}
+    upstream = f"{base_url}/v1/chat/completions"
 
-    async def stream() -> AsyncIterator[bytes]:
+    parts = []
+    carry = ""
+    async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
+        async with client.stream(
+            "POST", upstream, json=payload,
+            headers={"Content-Type": "application/json", "Accept": "text/event-stream", **auth_headers},
+        ) as resp:
+            if resp.status_code >= 400:
+                err = (await resp.aread()).decode(errors="replace")[:800]
+                raise RuntimeError(f"LLM {resp.status_code}: {err}")
+            async for raw in resp.aiter_bytes():
+                carry += raw.decode(errors="replace")
+                while "\n" in carry:
+                    line, carry = carry.split("\n", 1)
+                    line = line.rstrip("\r")
+                    if not line.startswith("data: "):
+                        continue
+                    data = line[6:]
+                    if data == "[DONE]":
+                        break
+                    try:
+                        obj = json.loads(data)
+                        delta = (obj.get("choices") or [{}])[0].get("delta", {}).get("content") or ""
+                        if delta:
+                            parts.append(delta)
+                    except Exception:
+                        pass
+    return "".join(parts)
+
+
+async def _run_scan_job(job_id: int) -> None:
+    db = SessionLocal()
+    try:
+        while True:
+            db.expire_all()
+            job = db.query(ScanJob).filter(ScanJob.id == job_id).first()
+            if not job:
+                return
+
+            if job.status == "cancelled":
+                for f in job.files:
+                    if f.status == "pending":
+                        f.status = "cancelled"
+                db.commit()
+                return
+
+            next_file = next((f for f in job.files if f.status == "pending"), None)
+            if not next_file:
+                job.status = "done"
+                db.commit()
+                return
+
+            next_file.status = "running"
+            db.commit()
+
+            base_url = _llm_base_url()
+            auth_headers = _lm_studio_auth_headers()
+
+            try:
+                content = next_file.inline_content or ""
+                if not content and next_file.file_path:
+                    p = Path(next_file.file_path)
+                    content = p.read_text(encoding="utf-8", errors="replace")
+                if not content:
+                    raise ValueError("No source content")
+
+                full_text = await _call_llm_full(
+                    base_url, auth_headers, job.model, job.system_prompt,
+                    next_file.filename, content,
+                )
+
+                result = CodeReviewResult(
+                    engagement_id=job.engagement_id,
+                    filename=next_file.filename,
+                    content=full_text,
+                )
+                db.add(result)
+                db.flush()
+                next_file.status = "done"
+                next_file.result_id = result.id
+                db.commit()
+
+            except asyncio.CancelledError:
+                db.expire_all()
+                db.query(ScanJobFile).filter(ScanJobFile.id == next_file.id).update(
+                    {"status": "cancelled"}
+                )
+                db.query(ScanJob).filter(ScanJob.id == job_id).update({"status": "cancelled"})
+                db.commit()
+                raise
+
+            except Exception as e:
+                db.expire_all()
+                db.query(ScanJobFile).filter(ScanJobFile.id == next_file.id).update(
+                    {"status": "error", "error_message": str(e)[:500]}
+                )
+                db.commit()
+
+    finally:
+        _running_tasks.pop(job_id, None)
+        db.close()
+
+
+def cleanup_orphaned_jobs() -> None:
+    """Mark any jobs left in 'running' state (server restart) as errored."""
+    db = SessionLocal()
+    try:
+        stuck = db.query(ScanJob).filter(ScanJob.status == "running").all()
+        for job in stuck:
+            job.status = "error"
+            for f in job.files:
+                if f.status in ("pending", "running"):
+                    f.status = "error"
+                    f.error_message = "Server restarted during scan"
+        if stuck:
+            db.commit()
+    finally:
+        db.close()
+
+
+# ── Job routes ────────────────────────────────────────────────────────────────
+
+class JobFileIn(BaseModel):
+    filename: str
+    file_path: Optional[str] = None
+    inline_content: Optional[str] = None
+
+
+class JobCreate(BaseModel):
+    engagement_id: int
+    model: str
+    system_prompt: str = ""
+    files: List[JobFileIn]
+
+
+def _serialize_job(job: ScanJob) -> dict:
+    return {
+        "id": job.id,
+        "engagement_id": job.engagement_id,
+        "model": job.model,
+        "status": job.status,
+        "created_at": job.created_at.isoformat() if job.created_at else None,
+        "files": [_serialize_job_file(f) for f in job.files],
+    }
+
+
+def _serialize_job_file(f: ScanJobFile) -> dict:
+    result_content = None
+    if f.status == "done" and f.result_id:
+        db = SessionLocal()
         try:
-            async with httpx.AsyncClient(timeout=DEFAULT_TIMEOUT) as client:
-                async with client.stream(
-                    "POST",
-                    upstream,
-                    json=payload,
-                    headers={
-                        "Content-Type": "application/json",
-                        "Accept": "text/event-stream",
-                        **_lm_studio_auth_headers(),
-                    },
-                ) as resp:
-                    if resp.status_code >= 400:
-                        err = (await resp.aread()).decode(errors="replace")[:800]
-                        yield f"data: {json.dumps({'error': {'message': err or str(resp.status_code)}})}\n\n".encode()
-                        return
-                    async for chunk in resp.aiter_bytes():
-                        yield chunk
-        except httpx.ConnectError:
-            yield f"data: {json.dumps({'error': {'message': 'Connection refused — is LLM running at LLM_PROXY_URL?'}})}\n\n".encode()
-        except httpx.TimeoutException:
-            yield f"data: {json.dumps({'error': {'message': 'Request timed out.'}})}\n\n".encode()
+            r = db.query(CodeReviewResult).filter(CodeReviewResult.id == f.result_id).first()
+            result_content = r.content if r else None
+        finally:
+            db.close()
+    return {
+        "id": f.id,
+        "filename": f.filename,
+        "status": f.status,
+        "result_id": f.result_id,
+        "result_content": result_content,
+        "error_message": f.error_message,
+    }
 
-    return StreamingResponse(
-        stream(),
-        media_type="text/event-stream",
-        headers={"Cache-Control": "no-cache", "Connection": "keep-alive", "X-Accel-Buffering": "no"},
+
+@router.post("/jobs", status_code=201)
+async def create_job(body: JobCreate, db: Session = Depends(get_db)):
+    base_url = _llm_base_url()
+    if not base_url:
+        raise HTTPException(503, "LLM_PROXY_URL is not set.")
+    if not body.files:
+        raise HTTPException(400, "No files provided")
+
+    job = ScanJob(
+        engagement_id=body.engagement_id,
+        model=body.model,
+        system_prompt=body.system_prompt,
+        status="running",
     )
+    db.add(job)
+    db.flush()
+
+    for f in body.files:
+        db.add(ScanJobFile(
+            job_id=job.id,
+            filename=f.filename,
+            file_path=f.file_path,
+            inline_content=f.inline_content,
+            status="pending",
+        ))
+    db.commit()
+    db.refresh(job)
+
+    task = asyncio.create_task(_run_scan_job(job.id))
+    _running_tasks[job.id] = task
+
+    return _serialize_job(job)
+
+
+@router.get("/jobs/{job_id}")
+def get_job(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(ScanJob).filter(ScanJob.id == job_id).first()
+    if not job:
+        raise HTTPException(404, "Job not found")
+    return _serialize_job(job)
+
+
+@router.get("/active-job/{engagement_id}")
+def get_active_job(engagement_id: int, db: Session = Depends(get_db)):
+    job = (
+        db.query(ScanJob)
+        .filter(ScanJob.engagement_id == engagement_id, ScanJob.status == "running")
+        .order_by(ScanJob.created_at.desc())
+        .first()
+    )
+    if not job:
+        return None
+    return _serialize_job(job)
+
+
+@router.delete("/jobs/{job_id}", status_code=204)
+def cancel_job(job_id: int, db: Session = Depends(get_db)):
+    job = db.query(ScanJob).filter(ScanJob.id == job_id).first()
+    if not job:
+        raise HTTPException(404, "Job not found")
+    job.status = "cancelled"
+    for f in job.files:
+        if f.status == "pending":
+            f.status = "cancelled"
+    db.commit()
+    task = _running_tasks.get(job_id)
+    if task:
+        task.cancel()
+
+
+@router.delete("/jobs/{job_id}/files/{file_id}", status_code=204)
+def cancel_job_file(job_id: int, file_id: int, db: Session = Depends(get_db)):
+    f = db.query(ScanJobFile).filter(
+        ScanJobFile.id == file_id, ScanJobFile.job_id == job_id
+    ).first()
+    if not f:
+        raise HTTPException(404, "File not found")
+    if f.status == "pending":
+        f.status = "cancelled"
+        db.commit()
 
 
 # ── Persisted review results ──────────────────────────────────────────────────

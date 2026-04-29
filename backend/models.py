@@ -81,6 +81,7 @@ class Engagement(Base):
     checklist_items = relationship("ChecklistItem", back_populates="engagement", cascade="all, delete-orphan")
     activity_logs = relationship("ActivityLog", back_populates="engagement", cascade="all, delete-orphan")
     code_review_results = relationship("CodeReviewResult", back_populates="engagement", cascade="all, delete-orphan")
+    scan_jobs = relationship("ScanJob", back_populates="engagement", cascade="all, delete-orphan")
     semgrep_results = relationship("SemgrepResult", back_populates="engagement", cascade="all, delete-orphan")
 
 
@@ -278,6 +279,35 @@ class CodeReviewResult(Base):
     created_at = Column(DateTime, default=_utcnow)
 
     engagement = relationship("Engagement", back_populates="code_review_results")
+
+
+class ScanJob(Base):
+    __tablename__ = "scan_jobs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    engagement_id = Column(Integer, ForeignKey("engagements.id", ondelete="CASCADE"), nullable=False)
+    model = Column(String(200), nullable=False)
+    system_prompt = Column(Text, default="")
+    status = Column(String(20), default="running")  # running | done | cancelled | error
+    created_at = Column(DateTime, default=_utcnow)
+
+    engagement = relationship("Engagement", back_populates="scan_jobs")
+    files = relationship("ScanJobFile", back_populates="job", order_by="ScanJobFile.id", cascade="all, delete-orphan")
+
+
+class ScanJobFile(Base):
+    __tablename__ = "scan_job_files"
+
+    id = Column(Integer, primary_key=True, index=True)
+    job_id = Column(Integer, ForeignKey("scan_jobs.id", ondelete="CASCADE"), nullable=False)
+    filename = Column(String(500), nullable=False)
+    file_path = Column(String(1000), nullable=True)
+    inline_content = Column(Text, nullable=True)
+    status = Column(String(20), default="pending")  # pending | running | done | error | cancelled
+    result_id = Column(Integer, nullable=True)
+    error_message = Column(Text, default="")
+
+    job = relationship("ScanJob", back_populates="files")
 
 
 class SemgrepResult(Base):

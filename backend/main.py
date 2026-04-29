@@ -27,6 +27,8 @@ async def lifespan(_app: FastAPI):
     ensure_sqlite_schema()
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    from backend.routers.code_scanner import cleanup_orphaned_jobs
+    cleanup_orphaned_jobs()
     yield
 
 

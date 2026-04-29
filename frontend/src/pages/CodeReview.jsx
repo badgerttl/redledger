@@ -4,14 +4,13 @@ import { useParams } from 'react-router-dom';
 import clsx from 'clsx';
 import api from '../api/client';
 import toast from 'react-hot-toast';
-import { parseSseLines } from '../assistant/sseUtils';
 import { useSettings } from '../context/SettingsContext';
 import { useCodeReviewScan } from '../context/CodeReviewScanContext';
 import MarkdownViewer from '../components/MarkdownViewer';
 import {
   ScanLine, ChevronDown, ChevronRight, FolderOpen, FileCode2,
   RefreshCw, Square, Save, CheckCircle2, XCircle, Loader2, Upload,
-  Trash2, StickyNote, X, FolderUp, Code, SunMoon,
+  Trash2, StickyNote, X, FolderUp, Code, SunMoon, Ban,
 } from 'lucide-react';
 
 const SEMGREP_SEV = {
@@ -682,11 +681,20 @@ function AddToNoteModal({ result, engagementId, onClose }) {
   );
 }
 
+
+const JOB_FILE_STATUS_ICON = {
+  pending:   <Loader2 className="h-3.5 w-3.5 text-text-muted" />,
+  running:   <Loader2 className="h-3.5 w-3.5 animate-spin text-accent" />,
+  done:      <CheckCircle2 className="h-3.5 w-3.5 text-green-500" />,
+  error:     <XCircle className="h-3.5 w-3.5 text-red-500" />,
+  cancelled: <Ban className="h-3.5 w-3.5 text-text-muted" />,
+};
+
 export default function CodeReview() {
   const { id: engagementId } = useParams();
   const { settings } = useSettings();
 
-  const [activeTab, setActiveTab] = useState('review'); // 'review' | 'semgrep'
+  const [activeTab, setActiveTab] = useState('review');
 
   const [models, setModels] = useState([]);
   const [model, setModel] = useState(() => localStorage.getItem(REVIEW_MODEL_KEY) || '');
@@ -710,14 +718,19 @@ export default function CodeReview() {
   const [fileFilter, setFileFilter] = useState('');
   const uploadDirInputRef = useRef(null);
 
-  // Scan state lives in context — survives navigation away and back
-  const { results, setResults, scanning, setScanning, scanEngagementId, setScanEngagementId, resultsEngagementId, setResultsEngagementId, abortRef, keyCounterRef } = useCodeReviewScan();
+  const {
+    results, setResults,
+    scanning, setScanning,
+    scanEngagementId, setScanEngagementId,
+    resultsEngagementId, setResultsEngagementId,
+    activeJobId, setActiveJobId,
+    jobFiles, setJobFiles,
+    seenResultIds,
+  } = useCodeReviewScan();
 
   const [noteModal, setNoteModal] = useState(null);
   const [resultFilter, setResultFilter] = useState('');
-  const [sourceModal, setSourceModal] = useState(null); // { filename, content }
-
-  const nextKey = () => `r-${++keyCounterRef.current}`;
+  const [sourceModal, setSourceModal] = useState(null);
 
   // ── Models ────────────────────────────────────────────────────────────────
 
@@ -772,7 +785,6 @@ export default function CodeReview() {
     if (mode === 'directory') loadScanDirs();
   }, [mode, loadScanDirs]);
 
-  // Auto-list files when selected dir changes
   useEffect(() => {
     if (mode !== 'directory' || !selectedScanDir) return;
     const dir = scanDirs.find((d) => d.name === selectedScanDir);
@@ -780,7 +792,7 @@ export default function CodeReview() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedScanDir, scanDirs]);
 
-  // Patch sourcePath onto any results missing it (e.g. loaded from DB) once scanDirs are known
+  // Patch sourcePath onto results loaded from DB once scanDirs known
   useEffect(() => {
     if (!scanDirs.length) return;
     setResults((prev) => prev.map((r) => {
@@ -793,14 +805,10 @@ export default function CodeReview() {
     }));
   }, [scanDirs, setResults]);
 
-  // ── DB results ────────────────────────────────────────────────────────────
-  // Only reload from DB if the engagement changed AND no scan is running for this engagement.
-  // If a scan is mid-flight, context results already contain live entries — don't clobber them.
+  // ── DB results load ───────────────────────────────────────────────────────
 
   useEffect(() => {
     if (!engagementId) return;
-    // Already loaded results for this engagement — don't clobber context (avoids disappearing
-    // results when navigating away and back, especially for unsaved 'done' entries).
     if (resultsEngagementId === engagementId) return;
     api.get(`/code-scanner/results/${engagementId}`)
       .then(({ data }) => {
@@ -818,6 +826,72 @@ export default function CodeReview() {
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [engagementId]);
+
+  // ── Reconnect to active job after page refresh ────────────────────────────
+
+  useEffect(() => {
+    if (!engagementId || activeJobId || scanning) return;
+    api.get(`/code-scanner/active-job/${engagementId}`)
+      .then(({ data }) => {
+        if (data && data.id) {
+          setActiveJobId(data.id);
+          setJobFiles(data.files || []);
+          setScanning(true);
+          setScanEngagementId(engagementId);
+        }
+      })
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [engagementId]);
+
+  // ── Poll active job ───────────────────────────────────────────────────────
+
+  useEffect(() => {
+    if (!activeJobId || !scanning) return;
+
+    const poll = async () => {
+      try {
+        const { data: job } = await api.get(`/code-scanner/jobs/${activeJobId}`);
+        setJobFiles(job.files || []);
+
+        for (const f of (job.files || [])) {
+          if (f.status === 'done' && f.result_id != null && f.result_content != null) {
+            if (!seenResultIds.current.has(f.result_id)) {
+              seenResultIds.current.add(f.result_id);
+              setResults((prev) => {
+                if (prev.some((r) => r.id === f.result_id)) return prev;
+                return [{
+                  key: `job-${f.result_id}`,
+                  id: f.result_id,
+                  filename: f.filename,
+                  content: f.result_content,
+                  sourcePath: null,
+                  sourceContent: null,
+                  status: 'saved',
+                  expanded: true,
+                  createdAt: null,
+                }, ...prev];
+              });
+            }
+          }
+        }
+
+        if (job.status === 'done' || job.status === 'cancelled' || job.status === 'error') {
+          setScanning(false);
+          setActiveJobId(null);
+          setJobFiles([]);
+          setResultsEngagementId(engagementId);
+        }
+      } catch (e) {
+        console.error('Job poll error', e);
+      }
+    };
+
+    const timerId = setInterval(poll, 2000);
+    poll();
+    return () => clearInterval(timerId);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeJobId, scanning]);
 
   // ── Single file browse ────────────────────────────────────────────────────
 
@@ -864,7 +938,6 @@ export default function CodeReview() {
       setSelectedScanDir(data.folder);
     } catch (err) {
       toast.error(err.message || 'Upload failed');
-      console.error('Upload error:', err);
     } finally {
       setUploadProgress(null);
     }
@@ -891,10 +964,7 @@ export default function CodeReview() {
     }
   };
 
-  const handleDirSelect = (name) => {
-    setSelectedScanDir(name);
-    // useEffect handles listFilesFor automatically
-  };
+  const handleDirSelect = (name) => { setSelectedScanDir(name); };
 
   const deleteScanDir = async (name) => {
     try {
@@ -922,166 +992,86 @@ export default function CodeReview() {
     });
   };
 
-  // ── Scan streaming ────────────────────────────────────────────────────────
-
-  const stopScan = () => abortRef.current?.abort();
-
-  const streamFile = async (key, fname, content, signal) => {
-    const systemPrompt = settings.code_review_system_prompt || '';
-    const res = await fetch('/api/code-scanner/scan-file', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ model, system_prompt: systemPrompt, filename: fname, content }),
-      signal,
-    });
-    if (!res.ok) {
-      const txt = await res.text().catch(() => res.statusText);
-      throw new Error(txt || `HTTP ${res.status}`);
-    }
-    const reader = res.body?.getReader();
-    if (!reader) throw new Error('No response body');
-    const decoder = new TextDecoder();
-    let carry = '';
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      carry += decoder.decode(value, { stream: true });
-      const { rest, deltas, hadError } = parseSseLines(carry);
-      carry = rest;
-      if (hadError) throw new Error(hadError);
-      if (deltas.length) {
-        setResults((prev) => prev.map((r) =>
-          r.key === key ? { ...r, content: (r.content || '') + deltas.join('') } : r
-        ));
-      }
-    }
-    const { deltas: tail, hadError: tailErr } = parseSseLines(carry + '\n');
-    if (tailErr) throw new Error(tailErr);
-    if (tail.length) {
-      setResults((prev) => prev.map((r) =>
-        r.key === key ? { ...r, content: (r.content || '') + tail.join('') } : r
-      ));
-    }
-  };
+  // ── Scan (job-based) ──────────────────────────────────────────────────────
 
   const runScan = async () => {
     if (!model) { toast.error('Select a model first'); return; }
     if (mode === 'single_file' && !fileCode.trim()) { toast.error('Load or paste code first'); return; }
-    if (mode === 'directory' && filteredFileList.filter((f) => selected[f.path]).length === 0) {
+    const selectedFiles = filteredFileList.filter((f) => selected[f.path]);
+    if (mode === 'directory' && selectedFiles.length === 0) {
       toast.error('Select at least one file'); return;
     }
 
-    const ac = new AbortController();
-    abortRef.current = ac;
-    setScanning(true);
-    setScanEngagementId(engagementId);
+    const files = mode === 'single_file'
+      ? [{ filename: filename || 'file', inline_content: fileCode }]
+      : selectedFiles.map((f) => ({
+          filename: `${selectedScanDir}/${f.relative_path || f.path}`,
+          file_path: f.path,
+        }));
 
-    const filesToScan = mode === 'single_file'
-      ? [{ path: null, relative_path: filename || 'file', content: fileCode }]
-      : filteredFileList.filter((f) => selected[f.path]);
-
-    const newEntries = filesToScan.map((f) => ({
-      key: nextKey(),
-      id: null,
-      filename: mode === 'directory'
-        ? `${selectedScanDir}/${f.relative_path || f.path}`
-        : (f.relative_path || f.path),
-      sourcePath: mode === 'directory' ? (f.path || null) : null,
-      sourceContent: mode === 'single_file' ? fileCode : null,
-      content: '',
-      status: 'pending',
-      expanded: true,
-    }));
-    setResults((prev) => [...newEntries, ...prev]);
-
-    for (let i = 0; i < filesToScan.length; i++) {
-      const entry = newEntries[i];
-      if (ac.signal.aborted) break;
-
-      setResults((prev) => prev.map((r) => r.key === entry.key ? { ...r, status: 'scanning' } : r));
-
-      try {
-        let content = filesToScan[i].content;
-        if (mode === 'directory' && content === undefined) {
-          const { data } = await api.post('/code-scanner/read-file', { path: filesToScan[i].path });
-          content = data.content;
-        }
-        await streamFile(entry.key, entry.filename, content, ac.signal);
-
-        let finalContent = '';
-        setResults((prev) => {
-          const r = prev.find((x) => x.key === entry.key);
-          finalContent = r?.content || '';
-          return prev;
-        });
-
-        try {
-          const { data: saved } = await api.post(`/code-scanner/results/${engagementId}`, {
-            filename: entry.filename,
-            content: finalContent,
-          });
-          setResults((prev) => prev.map((r) =>
-            r.key === entry.key ? { ...r, id: saved.id, status: 'saved', createdAt: saved.created_at } : r
-          ));
-        } catch {
-          setResults((prev) => prev.map((r) => r.key === entry.key ? { ...r, status: 'done' } : r));
-        }
-      } catch (e) {
-        const aborted = e?.name === 'AbortError';
-        setResults((prev) => prev.map((r) =>
-          r.key === entry.key
-            ? { ...r, status: aborted ? 'done' : 'error', content: r.content || (aborted ? '' : e.message) }
-            : r
-        ));
-        if (aborted) break;
-      }
+    try {
+      const { data: job } = await api.post('/code-scanner/jobs', {
+        engagement_id: parseInt(engagementId),
+        model,
+        system_prompt: settings.code_review_system_prompt || '',
+        files,
+      });
+      seenResultIds.current.clear();
+      setJobFiles(job.files || []);
+      setActiveJobId(job.id);
+      setScanning(true);
+      setScanEngagementId(engagementId);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to start scan');
     }
-
-    abortRef.current = null;
-    setScanning(false);
-    setResultsEngagementId(engagementId);
   };
+
+  const stopScan = async () => {
+    if (!activeJobId) return;
+    try { await api.delete(`/code-scanner/jobs/${activeJobId}`); } catch { /* ignore */ }
+    setScanning(false);
+    setActiveJobId(null);
+    setJobFiles([]);
+  };
+
+  const cancelJobFile = async (fileId) => {
+    if (!activeJobId) return;
+    try {
+      await api.delete(`/code-scanner/jobs/${activeJobId}/files/${fileId}`);
+      setJobFiles((prev) => prev.map((f) => f.id === fileId ? { ...f, status: 'cancelled' } : f));
+    } catch { toast.error('Could not cancel file'); }
+  };
+
+  // ── Re-scan a single result ───────────────────────────────────────────────
 
   const reprocessResult = async (result) => {
     if (scanning) return;
-    setResults((prev) => prev.map((r) =>
-      r.key === result.key ? { ...r, content: '', status: 'scanning', expanded: true } : r
-    ));
-    const ac = new AbortController();
-    try {
-      let content = result.sourceContent;
-      if (!content && result.sourcePath) {
-        const { data } = await api.post('/code-scanner/read-file', { path: result.sourcePath });
-        content = data.content;
-      }
-      if (!content) throw new Error('No source content available to re-scan');
-      await streamFile(result.key, result.filename, content, ac.signal);
-
-      let finalContent = '';
-      setResults((prev) => {
-        const r = prev.find((x) => x.key === result.key);
-        finalContent = r?.content || '';
-        return prev;
-      });
-
-      if (result.id) {
-        try { await api.delete(`/code-scanner/results/${result.id}`); } catch { /* ignore */ }
-      }
+    let inlineContent = result.sourceContent || null;
+    if (!inlineContent && result.sourcePath) {
       try {
-        const { data: saved } = await api.post(`/code-scanner/results/${engagementId}`, {
-          filename: result.filename,
-          content: finalContent,
-        });
-        setResults((prev) => prev.map((r) =>
-          r.key === result.key ? { ...r, id: saved.id, status: 'saved', createdAt: saved.created_at } : r
-        ));
+        const { data } = await api.post('/code-scanner/read-file', { path: result.sourcePath });
+        inlineContent = data.content;
       } catch {
-        setResults((prev) => prev.map((r) => r.key === result.key ? { ...r, status: 'done' } : r));
+        toast.error('Could not read source file');
+        return;
       }
-    } catch (e) {
-      setResults((prev) => prev.map((r) =>
-        r.key === result.key ? { ...r, status: 'error', content: r.content || e.message } : r
-      ));
+    }
+    if (!inlineContent) { toast.error('No source content available to re-scan'); return; }
+
+    try {
+      const { data: job } = await api.post('/code-scanner/jobs', {
+        engagement_id: parseInt(engagementId),
+        model,
+        system_prompt: settings.code_review_system_prompt || '',
+        files: [{ filename: result.filename, inline_content: inlineContent }],
+      });
+      seenResultIds.current.clear();
+      setJobFiles(job.files || []);
+      setActiveJobId(job.id);
+      setScanning(true);
+      setScanEngagementId(engagementId);
+    } catch (err) {
+      toast.error(err.response?.data?.detail || 'Failed to start re-scan');
     }
   };
 
@@ -1151,6 +1141,10 @@ export default function CodeReview() {
   const filteredResults = results.filter((r) =>
     fuzzyMatch(`${r.filename} ${r.content}`, resultFilter)
   );
+
+  // Job progress summary
+  const jobTotal = jobFiles.length;
+  const jobDone = jobFiles.filter((f) => f.status === 'done' || f.status === 'cancelled' || f.status === 'error').length;
 
   return (
     <div className="space-y-5">
@@ -1307,7 +1301,7 @@ export default function CodeReview() {
               ref={uploadDirInputRef}
               type="file"
               className="hidden"
-              // @ts-ignore — webkitdirectory is non-standard but widely supported
+              // @ts-ignore
               webkitdirectory=""
               multiple
               onChange={handleDirUpload}
@@ -1447,7 +1441,7 @@ export default function CodeReview() {
         {scanning ? (
           <button type="button" onClick={stopScan} className="btn-secondary flex items-center gap-2">
             <Square className="h-3.5 w-3.5 fill-current" />
-            Stop
+            Cancel All
           </button>
         ) : (
           <button
@@ -1461,6 +1455,42 @@ export default function CodeReview() {
           </button>
         )}
       </div>
+
+      {/* Active job progress panel */}
+      {scanning && jobFiles.length > 0 && (
+        <div className="card space-y-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-accent" />
+              <span className="text-sm font-medium text-text-secondary">
+                Scanning {jobDone} / {jobTotal} files
+              </span>
+            </div>
+            <span className="text-xs text-text-muted">Runs in background — safe to navigate away</span>
+          </div>
+          <div className="max-h-52 overflow-y-auto divide-y divide-border rounded-xl border border-border">
+            {jobFiles.map((f) => (
+              <div key={f.id} className="flex items-center gap-2 px-3 py-2">
+                <span className="shrink-0">{JOB_FILE_STATUS_ICON[f.status] ?? JOB_FILE_STATUS_ICON.pending}</span>
+                <span className="min-w-0 flex-1 truncate font-mono text-xs text-text-secondary">{f.filename}</span>
+                {f.status === 'error' && (
+                  <span className="shrink-0 text-xs text-red-400 truncate max-w-[200px]">{f.error_message}</span>
+                )}
+                {f.status === 'pending' && (
+                  <button
+                    type="button"
+                    onClick={() => cancelJobFile(f.id)}
+                    className="shrink-0 rounded p-0.5 text-text-muted hover:text-red-400 transition-colors"
+                    title="Cancel this file"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Results */}
       {results.length > 0 && (
@@ -1515,9 +1545,6 @@ export default function CodeReview() {
                     <span className="min-w-0 flex-1 truncate font-mono text-sm text-text-secondary">
                       {r.filename}
                     </span>
-                    {r.status === 'scanning' && (
-                      <span className="shrink-0 text-xs text-accent">Reviewing…</span>
-                    )}
                     {r.expanded
                       ? <ChevronDown className="h-4 w-4 shrink-0 text-text-muted" />
                       : <ChevronRight className="h-4 w-4 shrink-0 text-text-muted" />}
@@ -1580,8 +1607,6 @@ export default function CodeReview() {
                     <div className="text-sm leading-relaxed [&_.markdown-body]:text-sm [&_.markdown-body]:leading-relaxed [&_.markdown-body_pre]:!text-xs">
                       <MarkdownViewer content={r.content} />
                     </div>
-                  ) : r.status === 'scanning' ? (
-                    <p className="text-sm text-text-muted italic">Waiting for response…</p>
                   ) : (
                     <p className="text-sm text-text-muted italic">No output.</p>
                   )}
