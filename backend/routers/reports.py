@@ -1,12 +1,14 @@
 import base64
 import mimetypes
 from pathlib import Path
+from typing import Optional
 
 import markdown as mdlib
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, Response
 from jinja2 import Environment, FileSystemLoader
 from markupsafe import Markup
+from pydantic import BaseModel
 from sqlalchemy.orm import Session, selectinload
 
 from backend.database import get_db
@@ -77,7 +79,11 @@ def _html_env() -> Environment:
     return env
 
 
-def _get_report_data(engagement_id: int, db: Session) -> dict:
+class ReportGenerate(BaseModel):
+    excluded_finding_ids: Optional[list[int]] = None
+
+
+def _get_report_data(engagement_id: int, db: Session, excluded_ids: list[int] | None = None) -> dict:
     eng = db.query(Engagement).filter(Engagement.id == engagement_id).first()
     if not eng:
         raise HTTPException(404, "Engagement not found")
@@ -92,6 +98,8 @@ def _get_report_data(engagement_id: int, db: Session) -> dict:
         .filter(Finding.engagement_id == engagement_id)
         .all()
     )
+    if excluded_ids:
+        findings = [f for f in findings if f.id not in excluded_ids]
     findings.sort(key=lambda f: SEVERITY_ORDER.get(f.severity, 5))
     checklists = db.query(ChecklistItem).filter(ChecklistItem.engagement_id == engagement_id).all()
     applicable = [c for c in checklists if not getattr(c, "is_na", False)]
@@ -111,15 +119,15 @@ def _get_report_data(engagement_id: int, db: Session) -> dict:
     )
 
 
-def _render_html(engagement_id: int, db: Session) -> str:
-    data = _get_report_data(engagement_id, db)
+def _render_html(engagement_id: int, db: Session, excluded_ids: list[int] | None = None) -> str:
+    data = _get_report_data(engagement_id, db, excluded_ids=excluded_ids)
     env = _html_env()
     template = env.get_template("report_template.html")
     return template.render(**data)
 
 
-def _generate_markdown(engagement_id: int, db: Session) -> str:
-    data = _get_report_data(engagement_id, db)
+def _generate_markdown(engagement_id: int, db: Session, excluded_ids: list[int] | None = None) -> str:
+    data = _get_report_data(engagement_id, db, excluded_ids=excluded_ids)
     env = Environment(loader=FileSystemLoader(str(TEMPLATE_DIR)))
     try:
         template = env.get_template("report_template.md")
@@ -129,14 +137,26 @@ def _generate_markdown(engagement_id: int, db: Session) -> str:
 
 
 @router.post("/engagements/{engagement_id}/report")
-def generate_report(engagement_id: int, db: Session = Depends(get_db)):
-    md_content = _generate_markdown(engagement_id, db)
+def generate_report(engagement_id: int, body: ReportGenerate = ReportGenerate(), db: Session = Depends(get_db)):
+    excluded = body.excluded_finding_ids or []
+    md_content = _generate_markdown(engagement_id, db, excluded_ids=excluded or None)
 
     REPORT_DIR.mkdir(parents=True, exist_ok=True)
     md_path = REPORT_DIR / f"engagement_{engagement_id}_report.md"
     md_path.write_text(md_content)
 
     return {"message": "Report generated", "formats": ["md", "html", "pdf"]}
+
+
+@router.get("/engagements/{engagement_id}/report/preview")
+def preview_report(
+    engagement_id: int,
+    excluded_ids: str = Query(""),
+    db: Session = Depends(get_db),
+):
+    excluded = [int(x) for x in excluded_ids.split(",") if x.strip()] if excluded_ids else None
+    html = _render_html(engagement_id, db, excluded_ids=excluded)
+    return Response(content=html, media_type="text/html")
 
 
 @router.get("/engagements/{engagement_id}/report/download")

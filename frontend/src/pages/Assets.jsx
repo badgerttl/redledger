@@ -7,7 +7,6 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import {
   Plus,
   Server,
-  Globe,
   Trash2,
   ChevronDown,
   ChevronRight,
@@ -16,29 +15,10 @@ import {
   Copy,
   ArrowDownWideNarrow,
   Hash,
-  Zap,
-  Smartphone,
-  Cloud,
 } from 'lucide-react';
-
-const ASSET_TYPES = [
-  { value: 'host', label: 'Host', Icon: Server },
-  { value: 'web_page', label: 'Web Page', Icon: Globe },
-  { value: 'api_endpoint', label: 'API Endpoint', Icon: Zap },
-  { value: 'mobile_app', label: 'Mobile App', Icon: Smartphone },
-  { value: 'cloud_resource', label: 'Cloud Resource', Icon: Cloud },
-];
+import { ASSET_TYPES, assetTypeLabel, AssetIcon } from '../utils/assetTypes';
 
 const ASSET_TYPE_ORDER = Object.fromEntries(ASSET_TYPES.map((t, i) => [t.value, i]));
-
-function assetTypeLabel(type) {
-  return ASSET_TYPES.find(t => t.value === type)?.label ?? type;
-}
-
-function AssetIcon({ type, className }) {
-  const { Icon } = ASSET_TYPES.find(t => t.value === type) ?? { Icon: Server };
-  return <Icon className={className} />;
-}
 
 function tagsSortKey(asset) {
   const tags = asset.tags;

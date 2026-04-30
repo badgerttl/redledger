@@ -83,6 +83,7 @@ class Engagement(Base):
     code_review_results = relationship("CodeReviewResult", back_populates="engagement", cascade="all, delete-orphan")
     scan_jobs = relationship("ScanJob", back_populates="engagement", cascade="all, delete-orphan")
     semgrep_results = relationship("SemgrepResult", back_populates="engagement", cascade="all, delete-orphan")
+    notes = relationship("EngagementNote", back_populates="engagement", cascade="all, delete-orphan")
 
 
 class Scope(Base):
@@ -139,6 +140,30 @@ class Note(Base):
 
     asset = relationship("Asset", back_populates="notes")
     tags = relationship("Tag", secondary=note_tag, back_populates="notes")
+
+
+class FindingNote(Base):
+    __tablename__ = "finding_notes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    finding_id = Column(Integer, ForeignKey("findings.id", ondelete="CASCADE"), nullable=False)
+    body = Column(Text, default="")
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    finding = relationship("Finding", back_populates="notes")
+
+
+class EngagementNote(Base):
+    __tablename__ = "engagement_notes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    engagement_id = Column(Integer, ForeignKey("engagements.id", ondelete="CASCADE"), nullable=False)
+    body = Column(Text, default="")
+    created_at = Column(DateTime, default=_utcnow)
+    updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
+
+    engagement = relationship("Engagement", back_populates="notes")
 
 
 class ToolOutput(Base):
@@ -198,6 +223,7 @@ class Finding(Base):
                                foreign_keys="Screenshot.finding_id")
     linked_tool_outputs = relationship("ToolOutput", secondary=finding_tool_output, back_populates="findings")
     tags = relationship("Tag", secondary=finding_tag, back_populates="findings")
+    notes = relationship("FindingNote", back_populates="finding", cascade="all, delete-orphan")
 
 
 class Credential(Base):

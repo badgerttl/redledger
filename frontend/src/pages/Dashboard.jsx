@@ -9,8 +9,12 @@ import toast from 'react-hot-toast';
 import ConfirmDialog from '../components/ConfirmDialog';
 import {
   Plus, Trash2, Calendar, User, Shield, Clock,
-  Server, Globe, Search, KeyRound, FileSearch, Target,
+  Server, Search, KeyRound, FileSearch, Target, StickyNote,
+  ChevronDown, ChevronRight, Loader2, Save, X,
 } from 'lucide-react';
+import { assetTypeLabel, AssetIcon } from '../utils/assetTypes';
+import MarkdownEditor from '../components/MarkdownEditor';
+import MarkdownViewer from '../components/MarkdownViewer';
 
 export default function Dashboard() {
   const { id } = useParams();
@@ -389,10 +393,10 @@ export default function Dashboard() {
             {filteredAssets.map((a) => (
               <tr key={a.id} className="table-row cursor-pointer" onClick={() => navigate(`/e/${id}/assets/${a.id}`, { state: { from: `/e/${id}`, fromLabel: 'Dashboard' } })}>
                 <td className="px-4 py-2.5 text-sm font-medium text-text-primary flex items-center gap-2">
-                  {a.asset_type === 'host' ? <Server className="w-3.5 h-3.5 text-text-muted shrink-0" /> : <Globe className="w-3.5 h-3.5 text-text-muted shrink-0" />}
+                  <AssetIcon type={a.asset_type} className="w-3.5 h-3.5 text-text-muted shrink-0" />
                   {a.name}
                 </td>
-                <td className="px-4 py-2.5 text-sm text-text-secondary">{a.asset_type === 'host' ? 'Host' : 'Web Page'}</td>
+                <td className="px-4 py-2.5 text-sm text-text-secondary">{assetTypeLabel(a.asset_type)}</td>
                 <td className="px-4 py-2.5 text-sm text-text-secondary font-mono">{a.target || '—'}</td>
                 <td className="px-4 py-2.5 text-sm text-text-secondary">{a.os || '—'}</td>
                 <td className="px-4 py-2.5"><div className="flex gap-1 flex-wrap">{a.tags?.map((t) => <TagBadge key={t.id} tag={t} />)}</div></td>
@@ -521,6 +525,9 @@ export default function Dashboard() {
         </div>
       )}
 
+      {/* ── Engagement Notes ──────────────────────────────────────────────────── */}
+      <EngagementNotesPanel engagementId={current.id} />
+
       <ConfirmDialog
         open={!!deleteTarget}
         title="Delete Engagement"
@@ -528,6 +535,96 @@ export default function Dashboard() {
         onConfirm={() => confirmDelete(deleteTarget)}
         onCancel={() => setDeleteTarget(null)}
       />
+    </div>
+  );
+}
+
+function EngagementNotesPanel({ engagementId }) {
+  const [notes, setNotes] = useState([]);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const loadNotes = async () => {
+    try {
+      const { data } = await api.get(`/engagements/${engagementId}/notes`);
+      setNotes(data);
+    } catch { /* empty */ }
+  };
+
+  useEffect(() => { loadNotes(); }, [engagementId]);
+
+  const saveNote = async () => {
+    if (!draft.trim()) return;
+    setSaving(true);
+    try {
+      await api.post(`/engagements/${engagementId}/notes`, { body: draft.trim() });
+      setDraft('');
+      setAdding(false);
+      loadNotes();
+    } catch (err) { toast.error(err.message); }
+    setSaving(false);
+  };
+
+  const deleteNote = async (noteId) => {
+    try {
+      await api.delete(`/engagement-notes/${noteId}`);
+      loadNotes();
+    } catch (err) { toast.error(err.message); }
+  };
+
+  return (
+    <div className="card mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-medium flex items-center gap-2">
+          <StickyNote className="w-4 h-4 text-text-muted" /> Notes
+        </h3>
+        {!adding && (
+          <button onClick={() => setAdding(true)} className="btn-ghost text-xs flex items-center gap-1">
+            <Plus className="w-3.5 h-3.5" /> Add note
+          </button>
+        )}
+      </div>
+
+      {adding && (
+        <div className="mb-3">
+          <textarea
+            className="textarea text-sm w-full mb-2"
+            rows={3}
+            placeholder="Add a note..."
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <button onClick={saveNote} disabled={saving || !draft.trim()} className="btn-primary text-xs flex items-center gap-1">
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Save
+            </button>
+            <button onClick={() => { setAdding(false); setDraft(''); }} className="btn-ghost text-xs">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {notes.length === 0 && !adding ? (
+        <p className="text-xs text-text-muted">No notes yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {notes.map(n => (
+            <div key={n.id} className="group flex items-start gap-2 p-2.5 rounded-lg bg-input border border-border">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-text-primary whitespace-pre-wrap">{n.body}</p>
+                <p className="text-2xs text-text-muted mt-1">{new Date(n.created_at).toLocaleString()}</p>
+              </div>
+              <button
+                onClick={() => deleteNote(n.id)}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-text-muted hover:text-red-400 shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

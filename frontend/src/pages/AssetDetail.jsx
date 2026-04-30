@@ -11,6 +11,7 @@ import StatusBadge from '../components/StatusBadge';
 import { ArrowLeft, Plus, Trash2, StickyNote, Pencil, Check, X, Copy, ShieldAlert, KeyRound, Eye, EyeOff, ChevronDown, ChevronRight } from 'lucide-react';
 import ReconRecommendations from '../components/ReconRecommendations';
 import AssetChat from '../components/AssetChat';
+import { ASSET_TYPES, assetTypeLabel } from '../utils/assetTypes';
 
 const DEFAULT_TAG_COLORS = ['#6366f1', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
 
@@ -210,16 +211,6 @@ export default function AssetDetail() {
     );
   };
 
-  const ASSET_TYPE_OPTIONS = [
-    { value: 'host', label: 'Host' },
-    { value: 'web_page', label: 'Web Page' },
-    { value: 'api_endpoint', label: 'API Endpoint' },
-    { value: 'mobile_app', label: 'Mobile App' },
-    { value: 'cloud_resource', label: 'Cloud Resource' },
-  ];
-
-  const assetTypeLabel = (type) => ASSET_TYPE_OPTIONS.find(o => o.value === type)?.label ?? type;
-
   const renderEditableSelect = (field, label, options) => {
     if (editingField === field) {
       return (
@@ -288,7 +279,7 @@ export default function AssetDetail() {
         <div className="grid grid-cols-3 gap-4 text-sm">
           {renderEditableField('name', 'Name')}
           {renderEditableField('target', 'Target', true)}
-          {renderEditableSelect('asset_type', 'Type', ASSET_TYPE_OPTIONS)}
+          {renderEditableSelect('asset_type', 'Type', ASSET_TYPES)}
           {renderEditableField('os', 'OS')}
           {renderEditableField('ports_summary', 'Ports', true)}
           <div className="relative">

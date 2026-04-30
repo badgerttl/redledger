@@ -7,11 +7,101 @@ import StatusBadge from '../components/StatusBadge';
 import MarkdownViewer from '../components/MarkdownViewer';
 import MarkdownEditor from '../components/MarkdownEditor';
 import AttachmentGallery from '../components/AttachmentGallery';
-import { ArrowLeft, Trash2, Edit2, Save, Search, Loader2, Download, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Trash2, Edit2, Save, Search, Loader2, Download, ChevronDown, StickyNote, Plus, X } from 'lucide-react';
 
 const SEVERITIES = ['Critical', 'High', 'Medium', 'Low', 'Info'];
 const STATUSES = ['draft', 'confirmed', 'reported', 'remediated'];
 const PHASES = ['', 'Reconnaissance', 'Scanning and Enumeration', 'Exploitation', 'Post-Exploitation', 'Reporting'];
+
+function NotesPanel({ findingId }) {
+  const [notes, setNotes] = useState([]);
+  const [adding, setAdding] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  const loadNotes = async () => {
+    try {
+      const { data } = await api.get(`/findings/${findingId}/notes`);
+      setNotes(data);
+    } catch { /* empty */ }
+  };
+
+  useEffect(() => { loadNotes(); }, [findingId]);
+
+  const saveNote = async () => {
+    if (!draft.trim()) return;
+    setSaving(true);
+    try {
+      await api.post(`/findings/${findingId}/notes`, { body: draft.trim() });
+      setDraft('');
+      setAdding(false);
+      loadNotes();
+    } catch (err) { toast.error(err.message); }
+    setSaving(false);
+  };
+
+  const deleteNote = async (noteId) => {
+    try {
+      await api.delete(`/finding-notes/${noteId}`);
+      loadNotes();
+    } catch (err) { toast.error(err.message); }
+  };
+
+  return (
+    <div className="card mt-6">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-medium flex items-center gap-2">
+          <StickyNote className="w-4 h-4 text-text-muted" /> Notes
+        </h3>
+        {!adding && (
+          <button onClick={() => setAdding(true)} className="btn-ghost text-xs flex items-center gap-1">
+            <Plus className="w-3.5 h-3.5" /> Add note
+          </button>
+        )}
+      </div>
+
+      {adding && (
+        <div className="mb-3">
+          <textarea
+            className="textarea text-sm w-full mb-2"
+            rows={3}
+            placeholder="Add a note..."
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            autoFocus
+          />
+          <div className="flex gap-2">
+            <button onClick={saveNote} disabled={saving || !draft.trim()} className="btn-primary text-xs flex items-center gap-1">
+              {saving ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />} Save
+            </button>
+            <button onClick={() => { setAdding(false); setDraft(''); }} className="btn-ghost text-xs">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      {notes.length === 0 && !adding ? (
+        <p className="text-xs text-text-muted">No notes yet.</p>
+      ) : (
+        <div className="space-y-2">
+          {notes.map(n => (
+            <div key={n.id} className="group flex items-start gap-2 p-2.5 rounded-lg bg-input border border-border">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm text-text-primary whitespace-pre-wrap">{n.body}</p>
+                <p className="text-2xs text-text-muted mt-1">{new Date(n.created_at).toLocaleString()}</p>
+              </div>
+              <button
+                onClick={() => deleteNote(n.id)}
+                className="opacity-0 group-hover:opacity-100 transition-opacity text-text-muted hover:text-red-400 shrink-0"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function FindingDetail() {
   const { id, findingId } = useParams();
@@ -367,6 +457,8 @@ export default function FindingDetail() {
           title="Evidence"
         />
       </div>
+
+      <NotesPanel findingId={findingId} />
     </div>
   );
 }
