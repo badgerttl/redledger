@@ -16,9 +16,29 @@ import {
   Copy,
   ArrowDownWideNarrow,
   Hash,
+  Zap,
+  Smartphone,
+  Cloud,
 } from 'lucide-react';
 
-const ASSET_TYPE_ORDER = { host: 0, web_page: 1 };
+const ASSET_TYPES = [
+  { value: 'host', label: 'Host', Icon: Server },
+  { value: 'web_page', label: 'Web Page', Icon: Globe },
+  { value: 'api_endpoint', label: 'API Endpoint', Icon: Zap },
+  { value: 'mobile_app', label: 'Mobile App', Icon: Smartphone },
+  { value: 'cloud_resource', label: 'Cloud Resource', Icon: Cloud },
+];
+
+const ASSET_TYPE_ORDER = Object.fromEntries(ASSET_TYPES.map((t, i) => [t.value, i]));
+
+function assetTypeLabel(type) {
+  return ASSET_TYPES.find(t => t.value === type)?.label ?? type;
+}
+
+function AssetIcon({ type, className }) {
+  const { Icon } = ASSET_TYPES.find(t => t.value === type) ?? { Icon: Server };
+  return <Icon className={className} />;
+}
 
 function tagsSortKey(asset) {
   const tags = asset.tags;
@@ -62,7 +82,7 @@ function PortGroup({ group, engagementId, navigate, onCopyTarget }) {
                   type="button"
                   onClick={(e) => { e.stopPropagation(); onCopyTarget(e, a.target); }}
                   className="text-text-muted hover:text-accent transition-colors p-0.5 rounded hover:bg-accent/10 shrink-0"
-                  title={`Copy ${a.asset_type === 'host' ? 'IP address' : 'URL'}`}
+                  title="Copy target"
                 >
                   <Copy className="w-3.5 h-3.5" />
                 </button>
@@ -254,8 +274,7 @@ export default function Assets() {
             <div>
               <label className="label">Type</label>
               <select className="input" value={form.asset_type} onChange={(e) => setForm({ ...form, asset_type: e.target.value })}>
-                <option value="host">Host</option>
-                <option value="web_page">Web Page</option>
+                {ASSET_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>
             <div><label className="label">Target (IP/URL)</label><input className="input" placeholder="10.10.10.1 or https://..." value={form.target} onChange={(e) => setForm({ ...form, target: e.target.value })} /></div>
@@ -268,14 +287,14 @@ export default function Assets() {
         </div>
       )}
 
-      <div className="flex gap-2 mb-4">
-        {['all', 'host', 'web_page', 'ports'].map((f) => (
+      <div className="flex gap-2 mb-4 flex-wrap">
+        {['all', ...ASSET_TYPES.map(t => t.value), 'ports'].map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
             className={`btn-ghost ${filter === f ? 'bg-accent/10 text-accent' : ''}`}
           >
-            {f === 'all' ? 'All' : f === 'host' ? 'Hosts' : f === 'web_page' ? 'Web Pages' : 'Ports'}
+            {f === 'all' ? 'All' : f === 'ports' ? 'Ports' : assetTypeLabel(f) + 's'}
           </button>
         ))}
         <span className="text-xs text-text-muted self-center ml-2">
@@ -405,19 +424,19 @@ export default function Assets() {
                 {assetsForTable.map((a) => (
                   <tr key={a.id} className="table-row cursor-pointer" onClick={() => navigate(`/e/${id}/assets/${a.id}`, { state: { from: `/e/${id}/assets`, fromLabel: 'Assets' } })}>
                     <td className="px-4 py-3 text-sm font-medium text-text-primary flex items-center gap-2">
-                      {a.asset_type === 'host' ? <Server className="w-4 h-4 text-text-muted" /> : <Globe className="w-4 h-4 text-text-muted" />}
+                      <AssetIcon type={a.asset_type} className="w-4 h-4 text-text-muted" />
                       {a.name}
                       {a.target && (
                         <button
                           onClick={(e) => copyTarget(e, a.target)}
                           className="text-text-muted hover:text-accent transition-colors p-0.5 rounded hover:bg-accent/10"
-                          title={`Copy ${a.asset_type === 'host' ? 'IP address' : 'URL'}`}
+                          title="Copy target"
                         >
                           <Copy className="w-3.5 h-3.5" />
                         </button>
                       )}
                     </td>
-                    <td className="px-4 py-3 text-sm text-text-secondary">{a.asset_type === 'host' ? 'Host' : 'Web Page'}</td>
+                    <td className="px-4 py-3 text-sm text-text-secondary">{assetTypeLabel(a.asset_type)}</td>
                     <td className="px-4 py-3 text-sm text-text-secondary font-mono">{a.target}</td>
                     <td className="px-4 py-3 text-sm text-text-secondary">{a.os || '—'}</td>
                     <td className="px-4 py-3">

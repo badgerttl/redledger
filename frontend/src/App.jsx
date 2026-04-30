@@ -19,6 +19,7 @@ import Assistant from './pages/Assistant';
 import Settings from './pages/Settings';
 import Report from './pages/Report';
 import CodeReview from './pages/CodeReview';
+import Payloads from './pages/Payloads';
 
 
 function LegacyAssistantRedirect() {
@@ -52,6 +53,7 @@ export default function App() {
 
               <Route path="/e/:id/report" element={<Report />} />
               <Route path="/guides" element={<Guides />} />
+              <Route path="/payloads" element={<Payloads />} />
               <Route path="/e/:id/code-review" element={<CodeReview />} />
               <Route path="/assistant" element={<LegacyAssistantRedirect />} />
               <Route path="/e/:id/assistant" element={<Assistant />} />

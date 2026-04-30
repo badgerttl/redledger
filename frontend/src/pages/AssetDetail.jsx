@@ -210,6 +210,52 @@ export default function AssetDetail() {
     );
   };
 
+  const ASSET_TYPE_OPTIONS = [
+    { value: 'host', label: 'Host' },
+    { value: 'web_page', label: 'Web Page' },
+    { value: 'api_endpoint', label: 'API Endpoint' },
+    { value: 'mobile_app', label: 'Mobile App' },
+    { value: 'cloud_resource', label: 'Cloud Resource' },
+  ];
+
+  const assetTypeLabel = (type) => ASSET_TYPE_OPTIONS.find(o => o.value === type)?.label ?? type;
+
+  const renderEditableSelect = (field, label, options) => {
+    if (editingField === field) {
+      return (
+        <div className="flex items-center gap-2 flex-1">
+          <span className="text-text-muted shrink-0">{label}:</span>
+          <select
+            className="input py-1 text-xs flex-1"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            autoFocus
+          >
+            {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+          <button onClick={saveField} className="text-green-400 hover:text-green-300 transition-colors">
+            <Check className="w-3.5 h-3.5" />
+          </button>
+          <button onClick={cancelEditField} className="text-text-muted hover:text-red-400 transition-colors">
+            <X className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center gap-2 group/field">
+        <span className="text-text-muted">{label}:</span>
+        <span className="text-text-secondary">{assetTypeLabel(asset[field]) || '—'}</span>
+        <button
+          onClick={() => startEditField(field)}
+          className="text-text-muted hover:text-accent transition-colors opacity-0 group-hover/field:opacity-100"
+        >
+          <Pencil className="w-3 h-3" />
+        </button>
+      </div>
+    );
+  };
+
   const assetTagIds = asset.tags?.map(t => t.id) || [];
   const availableTags = allTags.filter(t => !assetTagIds.includes(t.id));
 
@@ -227,19 +273,22 @@ export default function AssetDetail() {
               <button
                 onClick={copyTarget}
                 className="text-text-muted hover:text-accent transition-colors p-1 rounded hover:bg-accent/10"
-                title={`Copy ${asset.asset_type === 'host' ? 'IP address' : 'URL'}`}
+                title="Copy target"
               >
                 <Copy className="w-4 h-4" />
               </button>
             )}
           </div>
-          <p className="text-sm text-text-muted mt-0.5">{asset.asset_type === 'host' ? 'Host' : 'Web Page'} · {asset.target}</p>
+          <p className="text-sm text-text-muted mt-0.5">{assetTypeLabel(asset.asset_type)} · {asset.target}</p>
         </div>
       </div>
 
       {/* Asset info */}
       <div className="card mb-6">
         <div className="grid grid-cols-3 gap-4 text-sm">
+          {renderEditableField('name', 'Name')}
+          {renderEditableField('target', 'Target', true)}
+          {renderEditableSelect('asset_type', 'Type', ASSET_TYPE_OPTIONS)}
           {renderEditableField('os', 'OS')}
           {renderEditableField('ports_summary', 'Ports', true)}
           <div className="relative">

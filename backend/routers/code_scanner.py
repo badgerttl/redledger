@@ -115,7 +115,7 @@ SKIP_DIRS = {
     ".mypy_cache", ".pytest_cache", "eggs", ".eggs",
 }
 
-MAX_FILE_SIZE = 100_000  # 100 KB
+MAX_FILE_SIZE = 400_000  # 400 KB (~120k tokens at 3.5 chars/token, fits 130k context)
 
 
 class DirectoryRequest(BaseModel):
@@ -162,7 +162,7 @@ def read_file(body: FileRequest):
         raise HTTPException(400, f"File not found: {body.path}")
     size = p.stat().st_size
     if size > MAX_FILE_SIZE:
-        raise HTTPException(400, f"File exceeds {MAX_FILE_SIZE // 1000} KB limit.")
+        raise HTTPException(400, f"File exceeds {MAX_FILE_SIZE // 1_000} KB limit.")
     try:
         content = p.read_text(encoding="utf-8", errors="replace")
     except Exception as e:

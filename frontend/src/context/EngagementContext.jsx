@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import api from '../api/client';
 
 const EngagementContext = createContext(null);
@@ -7,6 +7,7 @@ export function EngagementProvider({ children }) {
   const [engagements, setEngagements] = useState([]);
   const [current, setCurrent] = useState(null);
   const [loading, setLoading] = useState(true);
+  const autoSelectedRef = useRef(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -20,6 +21,16 @@ export function EngagementProvider({ children }) {
   }, []);
 
   useEffect(() => { refresh(); }, [refresh]);
+
+  // On hard refresh: auto-select engagement from URL once after initial load
+  useEffect(() => {
+    if (autoSelectedRef.current || loading || current) return;
+    const match = window.location.pathname.match(/^\/e\/(\d+)/);
+    if (!match) return;
+    autoSelectedRef.current = true;
+    selectEngagement(parseInt(match[1], 10));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading]);
 
   const selectEngagement = useCallback(async (id) => {
     try {

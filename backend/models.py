@@ -113,7 +113,7 @@ class Asset(Base):
     id = Column(Integer, primary_key=True, index=True)
     engagement_id = Column(Integer, ForeignKey("engagements.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(255), nullable=False)
-    asset_type = Column(String(20), nullable=False)  # host, web_page
+    asset_type = Column(String(20), nullable=False)  # host, web_page, api_endpoint, mobile_app, cloud_resource
     target = Column(String(500), default="")
     os = Column(String(100), default="")
     ports_summary = Column(Text, default="")

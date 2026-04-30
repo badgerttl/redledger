@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
-import { NavLink, useParams, useNavigate } from 'react-router-dom';
+import { NavLink, useMatch, useNavigate } from 'react-router-dom';
 import { useEngagement } from '../context/EngagementContext';
 import clsx from 'clsx';
 import {
   LayoutDashboard, Server, AlertTriangle, Key,
   Terminal, CheckSquare, Clock, BookOpen, FileText,
   ChevronLeft, ChevronRight, Shield, ChevronDown, Plus,
-  Folder, MessageSquare, Settings, ScanLine,
+  Folder, MessageSquare, Settings, ScanLine, Crosshair,
 } from 'lucide-react';
 
 const NAV_ITEMS = [
@@ -28,10 +28,9 @@ export default function Sidebar() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const engagementDropdownRef = useRef(null);
   const { engagements, current, selectEngagement, setCurrent } = useEngagement();
-  const { id } = useParams();
   const navigate = useNavigate();
-
-  const engId = id || current?.id;
+  const engMatch = useMatch('/e/:id/*');
+  const engId = engMatch?.params?.id || current?.id;
 
   const handleSelect = (eid) => {
     selectEngagement(eid);
@@ -192,6 +191,22 @@ export default function Sidebar() {
         >
           <BookOpen className="w-[1.05rem] h-[1.05rem] shrink-0" />
           {!collapsed && <span>Guides</span>}
+        </NavLink>
+
+        <NavLink
+          to="/payloads"
+          className={({ isActive }) =>
+            clsx(
+              'flex items-center gap-3 py-2 rounded-xl text-sm font-medium transition-all duration-200',
+              collapsed ? 'justify-center px-2 mx-0.5' : 'px-3 mx-0.5',
+              isActive
+                ? 'bg-accent/[0.14] text-accent shadow-[inset_0_0_0_1px_rgb(var(--color-accent)/0.22)]'
+                : 'text-sidebar-text-muted hover:text-sidebar-text hover:bg-white/[0.06]'
+            )
+          }
+        >
+          <Crosshair className="w-[1.05rem] h-[1.05rem] shrink-0" />
+          {!collapsed && <span>Payloads</span>}
         </NavLink>
 
         <NavLink
