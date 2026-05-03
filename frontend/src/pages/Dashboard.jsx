@@ -356,6 +356,9 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Severity summary */}
+      {findings.length > 0 && <SeverityWidget findings={findings} />}
+
       {/* Search */}
       <div className="mb-5">
         <div className="relative max-w-md">
@@ -625,6 +628,52 @@ function EngagementNotesPanel({ engagementId }) {
           ))}
         </div>
       )}
+    </div>
+  );
+}
+
+const SEV_CONFIG = [
+  { key: 'Critical', bar: 'bg-sev-critical', text: 'text-sev-critical' },
+  { key: 'High',     bar: 'bg-sev-high',     text: 'text-sev-high' },
+  { key: 'Medium',   bar: 'bg-sev-medium',   text: 'text-sev-medium' },
+  { key: 'Low',      bar: 'bg-sev-low',      text: 'text-sev-low' },
+  { key: 'Info',     bar: 'bg-sev-info',     text: 'text-sev-info' },
+];
+
+function SeverityWidget({ findings }) {
+  const counts = {};
+  for (const f of findings) counts[f.severity] = (counts[f.severity] || 0) + 1;
+  const total = findings.length;
+  const active = SEV_CONFIG.filter(({ key }) => counts[key]);
+  if (!active.length) return null;
+  return (
+    <div className="card mb-5">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-medium text-text-primary">Finding Summary</h3>
+        <span className="text-xs text-text-muted">{total} total</span>
+      </div>
+      <div className="flex gap-1 h-2 rounded-full overflow-hidden mb-3">
+        {SEV_CONFIG.map(({ key, bar }) =>
+          counts[key] ? (
+            <div
+              key={key}
+              className={`${bar} h-full transition-all`}
+              style={{ width: `${(counts[key] / total) * 100}%` }}
+              title={`${key}: ${counts[key]}`}
+            />
+          ) : null
+        )}
+      </div>
+      <div className="flex flex-wrap gap-x-5 gap-y-1">
+        {SEV_CONFIG.map(({ key, text }) =>
+          counts[key] ? (
+            <div key={key} className="flex items-center gap-1.5 text-xs">
+              <span className={`font-semibold ${text}`}>{counts[key]}</span>
+              <span className="text-text-muted">{key}</span>
+            </div>
+          ) : null
+        )}
+      </div>
     </div>
   );
 }

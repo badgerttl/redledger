@@ -82,9 +82,38 @@ class MarkdownErrorBoundary extends Component {
   }
 }
 
-const MD_COMPONENTS = { pre: CodeBlock };
+function buildComponents(onInternalLink) {
+  return {
+    pre: CodeBlock,
+    a: ({ href, children }) => {
+      if (
+        onInternalLink &&
+        href &&
+        !href.startsWith('http') &&
+        !href.startsWith('#') &&
+        !href.startsWith('mailto:') &&
+        href.endsWith('.md')
+      ) {
+        return (
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={() => onInternalLink(href)}
+            onKeyDown={(e) => e.key === 'Enter' && onInternalLink(href)}
+            className="text-blue-400 underline cursor-pointer hover:opacity-75"
+          >
+            {children}
+          </span>
+        );
+      }
+      return <a href={href} target="_blank" rel="noopener noreferrer">{children}</a>;
+    },
+  };
+}
 
-export default function MarkdownViewer({ content }) {
+const DEFAULT_COMPONENTS = buildComponents(null);
+
+export default function MarkdownViewer({ content, onInternalLink }) {
   const text = content || '';
   if (isStructuredContent(text)) {
     return (
@@ -93,10 +122,11 @@ export default function MarkdownViewer({ content }) {
       </pre>
     );
   }
+  const components = onInternalLink ? buildComponents(onInternalLink) : DEFAULT_COMPONENTS;
   return (
     <div className="markdown-body">
       <MarkdownErrorBoundary content={text}>
-        <ReactMarkdown remarkPlugins={[remarkGfm]} components={MD_COMPONENTS}>
+        <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
           {text}
         </ReactMarkdown>
       </MarkdownErrorBoundary>

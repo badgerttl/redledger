@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import toast from 'react-hot-toast';
 import TagBadge from '../components/TagBadge';
@@ -15,10 +15,183 @@ import {
   Copy,
   ArrowDownWideNarrow,
   Hash,
+  Upload,
+  Download,
+  AlertCircle,
+  CheckCircle2,
+  X,
+  Square,
+  CheckSquare,
 } from 'lucide-react';
 import { ASSET_TYPES, assetTypeLabel, AssetIcon } from '../utils/assetTypes';
 
 const ASSET_TYPE_ORDER = Object.fromEntries(ASSET_TYPES.map((t, i) => [t.value, i]));
+const VALID_ASSET_TYPES = new Set(ASSET_TYPES.map((t) => t.value));
+
+const CSV_TEMPLATE = `name,asset_type,target,os\nweb-app-prod,web_page,https://example.com,\ndb-server,host,10.10.10.5,Linux Ubuntu 22.04\napi-gateway,api_endpoint,https://api.example.com/v1,\nexample.com,domain,example.com,\n10.10.10.0/24,network,10.10.10.0/24,\nprod-db,database,10.10.10.20,\nmy-repo,git_repo,https://github.com/org/repo,\n`;
+
+function downloadTemplate() {
+  const blob = new Blob([CSV_TEMPLATE], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'assets_template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function parseCsv(text) {
+  const lines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').trim().split('\n');
+  if (lines.length < 2) return [];
+  const header = lines[0].split(',').map((h) => h.trim().toLowerCase());
+  const nameIdx = header.indexOf('name');
+  const typeIdx = header.indexOf('asset_type');
+  const targetIdx = header.indexOf('target');
+  const osIdx = header.indexOf('os');
+  if (nameIdx === -1) return null; // bad header
+
+  return lines.slice(1).map((line, i) => {
+    const cols = line.split(',');
+    const name = (cols[nameIdx] || '').trim();
+    const asset_type = (cols[typeIdx] || '').trim() || 'host';
+    const target = (cols[targetIdx] || '').trim();
+    const os = (cols[osIdx] || '').trim();
+    const errors = [];
+    if (!name) errors.push('name required');
+    if (!VALID_ASSET_TYPES.has(asset_type))
+      errors.push(`invalid type "${asset_type}" — use: ${[...VALID_ASSET_TYPES].join(', ')}`);
+    return { _row: i + 2, name, asset_type, target, os, errors };
+  }).filter((r) => r.name || r.target); // skip blank rows
+}
+
+function CsvImportPanel({ engagementId, onDone, onClose }) {
+  const [rows, setRows] = useState(null);
+  const [parseError, setParseError] = useState('');
+  const [importing, setImporting] = useState(false);
+
+  const handleFile = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const result = parseCsv(ev.target.result);
+      if (result === null) {
+        setParseError('CSV must have a "name" column header.');
+        setRows(null);
+      } else {
+        setParseError('');
+        setRows(result);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const validRows = rows?.filter((r) => r.errors.length === 0) ?? [];
+  const hasErrors = rows?.some((r) => r.errors.length > 0);
+
+  const handleImport = async () => {
+    if (!validRows.length) return;
+    setImporting(true);
+    try {
+      const { data } = await api.post(`/engagements/${engagementId}/assets/import`, {
+        assets: validRows.map(({ name, asset_type, target, os }) => ({ name, asset_type, target, os })),
+      });
+      toast.success(`Imported ${data.imported} asset${data.imported !== 1 ? 's' : ''}`);
+      onDone();
+    } catch (err) { toast.error(err.message); }
+    setImporting(false);
+  };
+
+  return (
+    <div className="card mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-base font-medium flex items-center gap-2">
+          <Upload className="w-4 h-4" /> Import Assets from CSV
+        </h2>
+        <button onClick={onClose} className="text-text-muted hover:text-text-primary transition-colors">
+          <X className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="flex items-center gap-3 mb-4">
+        <button type="button" onClick={downloadTemplate} className="btn-secondary flex items-center gap-2 text-sm">
+          <Download className="w-4 h-4" /> Download Template
+        </button>
+        <span className="text-xs text-text-muted">Columns: name, asset_type, target, os — asset_type defaults to "host" if blank</span>
+      </div>
+
+      <label className="flex items-center justify-center gap-2 border-2 border-dashed border-border rounded-lg py-8 cursor-pointer hover:border-accent/50 hover:bg-accent/5 transition-colors mb-4">
+        <Upload className="w-5 h-5 text-text-muted" />
+        <span className="text-sm text-text-muted">Click to select CSV file</span>
+        <input type="file" accept=".csv,text/csv" className="hidden" onChange={handleFile} />
+      </label>
+
+      {parseError && (
+        <div className="flex items-center gap-2 text-sm text-red-400 mb-4">
+          <AlertCircle className="w-4 h-4 shrink-0" /> {parseError}
+        </div>
+      )}
+
+      {rows !== null && rows.length === 0 && (
+        <p className="text-sm text-text-muted mb-4">No data rows found in file.</p>
+      )}
+
+      {rows !== null && rows.length > 0 && (
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <p className="text-sm text-text-secondary">
+              <span className="text-text-primary font-medium">{rows.length}</span> row{rows.length !== 1 ? 's' : ''} parsed
+              {hasErrors && <span className="text-yellow-500 ml-2">· {rows.filter(r => r.errors.length).length} with errors (will be skipped)</span>}
+            </p>
+          </div>
+          <div className="card p-0 overflow-hidden overflow-x-auto max-h-72">
+            <table className="w-full text-xs">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left px-3 py-2 text-text-muted font-medium">#</th>
+                  <th className="text-left px-3 py-2 text-text-muted font-medium">Name</th>
+                  <th className="text-left px-3 py-2 text-text-muted font-medium">Type</th>
+                  <th className="text-left px-3 py-2 text-text-muted font-medium">Target</th>
+                  <th className="text-left px-3 py-2 text-text-muted font-medium">OS</th>
+                  <th className="text-left px-3 py-2 text-text-muted font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r._row} className={`border-b border-border last:border-0 ${r.errors.length ? 'bg-red-500/5' : ''}`}>
+                    <td className="px-3 py-1.5 text-text-muted">{r._row}</td>
+                    <td className="px-3 py-1.5 font-medium text-text-primary">{r.name || '—'}</td>
+                    <td className="px-3 py-1.5 text-text-secondary">{r.asset_type}</td>
+                    <td className="px-3 py-1.5 font-mono text-text-secondary">{r.target || '—'}</td>
+                    <td className="px-3 py-1.5 text-text-secondary">{r.os || '—'}</td>
+                    <td className="px-3 py-1.5">
+                      {r.errors.length
+                        ? <span className="flex items-center gap-1 text-red-400"><AlertCircle className="w-3 h-3 shrink-0" />{r.errors.join(', ')}</span>
+                        : <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-3">
+        <button
+          type="button"
+          onClick={handleImport}
+          disabled={importing || !validRows.length}
+          className="btn-primary flex items-center gap-2"
+        >
+          <Upload className="w-4 h-4" />
+          {importing ? 'Importing…' : `Import ${validRows.length} Asset${validRows.length !== 1 ? 's' : ''}`}
+        </button>
+        <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
+      </div>
+    </div>
+  );
+}
 
 function tagsSortKey(asset) {
   const tags = asset.tags;
@@ -96,10 +269,23 @@ function PortsView({ portGroups, engagementId, navigate, onCopyTarget, emptyMess
 export default function Assets() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const filter = searchParams.get('type') || 'all';
+  const setFilter = (type) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (type && type !== 'all') next.set('type', type);
+      else next.delete('type');
+      return next;
+    });
+    setTagFilter(new Set());
+    setSelectedIds(new Set());
+  };
+
   const [assets, setAssets] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [form, setForm] = useState({ name: '', asset_type: 'host', target: '', os: '' });
-  const [filter, setFilter] = useState('all');
   const [portSort, setPortSort] = useState('port');
   const [portSearch, setPortSearch] = useState('');
   const [assetSearch, setAssetSearch] = useState('');
@@ -109,12 +295,28 @@ export default function Assets() {
   const [refresh, setRefresh] = useState(0);
   const reload = () => setRefresh(r => r + 1);
 
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkType, setBulkType] = useState('');
+  const [bulkOs, setBulkOs] = useState('');
+  const [bulkWorking, setBulkWorking] = useState(false);
+  const [tagFilter, setTagFilter] = useState(new Set());
+  const [allTags, setAllTags] = useState([]);
+  const [bulkNewTagName, setBulkNewTagName] = useState('');
+  const [bulkNewTagColor, setBulkNewTagColor] = useState('#6366f1');
+  const [showBulkNewTag, setShowBulkNewTag] = useState(false);
+
+  const TAG_COLORS = ['#6366f1', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
+
   useEffect(() => {
     const controller = new AbortController();
     const load = async () => {
       try {
-        const { data } = await api.get(`/engagements/${id}/assets`, { signal: controller.signal });
-        setAssets(data);
+        const [{ data: assetData }, { data: tagData }] = await Promise.all([
+          api.get(`/engagements/${id}/assets`, { signal: controller.signal }),
+          api.get('/tags', { signal: controller.signal }),
+        ]);
+        setAssets(assetData);
+        setAllTags(tagData);
       } catch (err) {
         if (err.name !== 'CanceledError') toast.error(err.message);
       }
@@ -152,6 +354,102 @@ export default function Assets() {
     } catch { toast.error('Failed to copy'); }
   };
 
+  const toggleSelect = (aid) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(aid) ? next.delete(aid) : next.add(aid);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) =>
+      prev.size === assetsForTable.length
+        ? new Set()
+        : new Set(assetsForTable.map((a) => a.id))
+    );
+  };
+
+  const applyBulkPatch = async (patch) => {
+    if (!selectedIds.size) return;
+    setBulkWorking(true);
+    try {
+      await Promise.all([...selectedIds].map((aid) => api.patch(`/assets/${aid}`, patch)));
+      toast.success(`Updated ${selectedIds.size} asset${selectedIds.size !== 1 ? 's' : ''}`);
+      setSelectedIds(new Set());
+      setBulkType('');
+      setBulkOs('');
+      reload();
+    } catch (err) { toast.error(err.message); }
+    setBulkWorking(false);
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedIds.size) return;
+    setBulkWorking(true);
+    try {
+      await Promise.all([...selectedIds].map((aid) => api.delete(`/assets/${aid}`)));
+      toast.success(`Deleted ${selectedIds.size} asset${selectedIds.size !== 1 ? 's' : ''}`);
+      setSelectedIds(new Set());
+      reload();
+    } catch (err) { toast.error(err.message); }
+    setBulkWorking(false);
+  };
+
+  const handleBulkAddTag = async (tagId) => {
+    if (!selectedIds.size || !tagId) return;
+    setBulkWorking(true);
+    try {
+      const selected = assets.filter((a) => selectedIds.has(a.id));
+      await Promise.all(selected.map((a) => {
+        const ids = (a.tags || []).map((t) => t.id);
+        if (ids.includes(tagId)) return Promise.resolve();
+        return api.patch(`/assets/${a.id}`, { tag_ids: [...ids, tagId] });
+      }));
+      toast.success(`Tag added to ${selectedIds.size} asset${selectedIds.size !== 1 ? 's' : ''}`);
+      setSelectedIds(new Set());
+      reload();
+    } catch (err) { toast.error(err.message); }
+    setBulkWorking(false);
+  };
+
+  const handleBulkRemoveTag = async (tagId) => {
+    if (!selectedIds.size || !tagId) return;
+    setBulkWorking(true);
+    try {
+      const selected = assets.filter((a) => selectedIds.has(a.id));
+      await Promise.all(selected.map((a) => {
+        const ids = (a.tags || []).map((t) => t.id);
+        if (!ids.includes(tagId)) return Promise.resolve();
+        return api.patch(`/assets/${a.id}`, { tag_ids: ids.filter((i) => i !== tagId) });
+      }));
+      toast.success(`Tag removed from ${selectedIds.size} asset${selectedIds.size !== 1 ? 's' : ''}`);
+      setSelectedIds(new Set());
+      reload();
+    } catch (err) { toast.error(err.message); }
+    setBulkWorking(false);
+  };
+
+  const handleBulkCreateAndAddTag = async () => {
+    if (!bulkNewTagName.trim()) return;
+    setBulkWorking(true);
+    try {
+      const { data: tag } = await api.post('/tags', { name: bulkNewTagName.trim(), color: bulkNewTagColor });
+      setAllTags((prev) => [...prev, tag]);
+      setBulkNewTagName('');
+      setShowBulkNewTag(false);
+      const selected = assets.filter((a) => selectedIds.has(a.id));
+      await Promise.all(selected.map((a) => {
+        const ids = (a.tags || []).map((t) => t.id);
+        return api.patch(`/assets/${a.id}`, { tag_ids: [...ids, tag.id] });
+      }));
+      toast.success(`Tag "${tag.name}" created and added`);
+      setSelectedIds(new Set());
+      reload();
+    } catch (err) { toast.error(err.message); }
+    setBulkWorking(false);
+  };
+
   const typeFilteredAssets = useMemo(() => {
     if (filter === 'ports') return [];
     if (filter === 'all') return assets;
@@ -161,6 +459,12 @@ export default function Assets() {
   const assetsForTable = useMemo(() => {
     const q = assetSearch.trim().toLowerCase();
     let list = typeFilteredAssets;
+    if (tagFilter.size > 0) {
+      list = list.filter((a) => {
+        const assetTagIds = new Set((a.tags || []).map((t) => t.id));
+        return [...tagFilter].every((tid) => assetTagIds.has(tid));
+      });
+    }
     if (q) {
       list = list.filter((a) => {
         const name = (a.name || '').toLowerCase();
@@ -195,6 +499,16 @@ export default function Assets() {
     });
     return sorted;
   }, [typeFilteredAssets, assetSearch, sortKey, sortDir]);
+
+  const tagsInView = useMemo(() => {
+    const map = new Map();
+    for (const a of typeFilteredAssets) {
+      for (const t of (a.tags || [])) {
+        if (!map.has(t.id)) map.set(t.id, t);
+      }
+    }
+    return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+  }, [typeFilteredAssets]);
 
   const toggleColumnSort = (key) => {
     if (sortKey === key) setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
@@ -241,10 +555,26 @@ export default function Assets() {
     <div>
       <div className="page-header">
         <h1 className="page-title">Assets</h1>
-        <button onClick={() => setShowCreate(true)} className="btn-primary flex items-center gap-2">
-          <Plus className="w-4 h-4" /> New Asset
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => { setShowImport(true); setShowCreate(false); }}
+            className="btn-secondary flex items-center gap-2"
+          >
+            <Upload className="w-4 h-4" /> Import CSV
+          </button>
+          <button onClick={() => { setShowCreate(true); setShowImport(false); }} className="btn-primary flex items-center gap-2">
+            <Plus className="w-4 h-4" /> New Asset
+          </button>
+        </div>
       </div>
+
+      {showImport && (
+        <CsvImportPanel
+          engagementId={id}
+          onDone={() => { setShowImport(false); reload(); }}
+          onClose={() => setShowImport(false)}
+        />
+      )}
 
       {showCreate && (
         <div className="card mb-6">
@@ -267,7 +597,7 @@ export default function Assets() {
         </div>
       )}
 
-      <div className="flex gap-2 mb-4 flex-wrap">
+      <div className="flex gap-2 mb-3 flex-wrap">
         {['all', ...ASSET_TYPES.map(t => t.value), 'ports'].map((f) => (
           <button
             key={f}
@@ -281,6 +611,47 @@ export default function Assets() {
           {filter === 'ports' ? `${portGroups.length} port(s)` : `${assetsForTable.length} asset(s)`}
         </span>
       </div>
+
+      {tagsInView.length > 0 && filter !== 'ports' && (
+        <div className="flex gap-1.5 flex-wrap items-center mb-4">
+          <span className="text-xs text-text-muted">Tags:</span>
+          {tagsInView.map((t) => {
+            const active = tagFilter.has(t.id);
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTagFilter((prev) => {
+                  const next = new Set(prev);
+                  active ? next.delete(t.id) : next.add(t.id);
+                  return next;
+                })}
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs border transition-colors ${
+                  active
+                    ? 'border-transparent text-white'
+                    : 'border-border text-text-muted hover:border-accent/50 hover:text-text-secondary'
+                }`}
+                style={active ? { backgroundColor: t.color } : {}}
+              >
+                <span
+                  className="w-1.5 h-1.5 rounded-full shrink-0"
+                  style={{ backgroundColor: active ? 'rgba(255,255,255,0.6)' : t.color }}
+                />
+                {t.name}
+              </button>
+            );
+          })}
+          {tagFilter.size > 0 && (
+            <button
+              type="button"
+              onClick={() => setTagFilter(new Set())}
+              className="btn-ghost text-xs text-text-muted flex items-center gap-0.5"
+            >
+              <X className="w-3 h-3" /> Clear
+            </button>
+          )}
+        </div>
+      )}
 
       {filter === 'ports' ? (
         <div className="space-y-3">
@@ -343,10 +714,178 @@ export default function Assets() {
               autoComplete="off"
             />
           </div>
+          {selectedIds.size > 0 && (
+            <div className="card mb-3 overflow-visible">
+              {/* Header row */}
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-sm font-semibold text-text-primary">
+                  {selectedIds.size} asset{selectedIds.size !== 1 ? 's' : ''} selected
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleBulkDelete}
+                    disabled={bulkWorking}
+                    className="btn-ghost text-xs text-red-400 hover:text-red-300 flex items-center gap-1.5"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete selected
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setSelectedIds(new Set()); setBulkType(''); setBulkOs(''); setShowBulkNewTag(false); setBulkNewTagName(''); }}
+                    className="btn-ghost text-xs text-text-muted flex items-center gap-1"
+                  >
+                    <X className="w-3.5 h-3.5" /> Clear
+                  </button>
+                </div>
+              </div>
+
+              <div className="border-t border-border pt-3 grid grid-cols-3 gap-x-6 gap-y-3">
+                {/* Asset Type */}
+                <div>
+                  <label className="label mb-1.5 block">Asset Type</label>
+                  <div className="flex gap-2">
+                    <select
+                      className="input text-xs flex-1"
+                      value={bulkType}
+                      disabled={bulkWorking}
+                      onChange={(e) => setBulkType(e.target.value)}
+                    >
+                      <option value="">Select…</option>
+                      {ASSET_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => applyBulkPatch({ asset_type: bulkType })}
+                      disabled={bulkWorking || !bulkType}
+                      className="btn-primary text-xs px-3"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+
+                {/* OS */}
+                <div>
+                  <label className="label mb-1.5 block">Operating System</label>
+                  <div className="flex gap-2">
+                    <input
+                      className="input text-xs flex-1"
+                      placeholder="e.g. Windows, Linux…"
+                      value={bulkOs}
+                      disabled={bulkWorking}
+                      onChange={(e) => setBulkOs(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && bulkOs.trim() && applyBulkPatch({ os: bulkOs.trim() })}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => applyBulkPatch({ os: bulkOs.trim() })}
+                      disabled={bulkWorking || !bulkOs.trim()}
+                      className="btn-primary text-xs px-3"
+                    >
+                      Apply
+                    </button>
+                  </div>
+                </div>
+
+                {/* Tags */}
+                <div>
+                  <label className="label mb-1.5 block">Tags</label>
+                  <div className="flex gap-2 flex-wrap">
+                    <select
+                      className="input text-xs flex-1 min-w-0"
+                      defaultValue=""
+                      disabled={bulkWorking}
+                      onChange={(e) => { if (e.target.value) { handleBulkAddTag(parseInt(e.target.value)); e.target.value = ''; } }}
+                    >
+                      <option value="" disabled>Add tag…</option>
+                      {allTags.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                    <select
+                      className="input text-xs flex-1 min-w-0"
+                      defaultValue=""
+                      disabled={bulkWorking || !allTags.length}
+                      onChange={(e) => { if (e.target.value) { handleBulkRemoveTag(parseInt(e.target.value)); e.target.value = ''; } }}
+                    >
+                      <option value="" disabled>Remove tag…</option>
+                      {allTags.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => setShowBulkNewTag((v) => !v)}
+                      className="btn-secondary text-xs px-2.5 flex items-center gap-1 shrink-0"
+                      title="Create new tag"
+                    >
+                      <Plus className="w-3.5 h-3.5" /> New
+                    </button>
+                  </div>
+
+                  {/* Inline new-tag form */}
+                  {showBulkNewTag && (
+                    <div className="mt-2 flex flex-col gap-2 p-3 rounded-lg bg-input border border-border">
+                      <input
+                        className="input text-xs"
+                        placeholder="Tag name…"
+                        value={bulkNewTagName}
+                        autoFocus
+                        onChange={(e) => setBulkNewTagName(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleBulkCreateAndAddTag()}
+                      />
+                      <div className="flex gap-1.5 flex-wrap">
+                        {TAG_COLORS.map((c) => (
+                          <button
+                            key={c}
+                            type="button"
+                            onClick={() => setBulkNewTagColor(c)}
+                            className="w-5 h-5 rounded-full transition-transform hover:scale-110 shrink-0"
+                            style={{
+                              backgroundColor: c,
+                              outline: bulkNewTagColor === c ? `2px solid ${c}` : 'none',
+                              outlineOffset: '2px',
+                            }}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={handleBulkCreateAndAddTag}
+                          disabled={bulkWorking || !bulkNewTagName.trim()}
+                          className="btn-primary text-xs flex-1"
+                        >
+                          Create &amp; Add
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { setShowBulkNewTag(false); setBulkNewTagName(''); }}
+                          className="btn-ghost text-xs"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="card p-0 overflow-hidden">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border">
+                  <th className="w-10 px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={toggleSelectAll}
+                      className="text-text-muted hover:text-text-primary transition-colors"
+                      title={selectedIds.size === assetsForTable.length && assetsForTable.length > 0 ? 'Deselect all' : 'Select all'}
+                    >
+                      {selectedIds.size === assetsForTable.length && assetsForTable.length > 0
+                        ? <CheckSquare className="w-4 h-4 text-accent" />
+                        : <Square className="w-4 h-4" />}
+                    </button>
+                  </th>
                   <th className="text-left px-4 py-3 text-xs font-medium text-text-muted uppercase tracking-wider">
                     <button
                       type="button"
@@ -402,7 +941,12 @@ export default function Assets() {
               </thead>
               <tbody>
                 {assetsForTable.map((a) => (
-                  <tr key={a.id} className="table-row cursor-pointer" onClick={() => navigate(`/e/${id}/assets/${a.id}`, { state: { from: `/e/${id}/assets`, fromLabel: 'Assets' } })}>
+                  <tr key={a.id} className={`table-row cursor-pointer ${selectedIds.has(a.id) ? 'bg-accent/5' : ''}`} onClick={() => navigate(`/e/${id}/assets/${a.id}`, { state: { from: `/e/${id}/assets`, fromLabel: 'Assets' } })}>
+                    <td className="px-4 py-3" onClick={(e) => { e.stopPropagation(); toggleSelect(a.id); }}>
+                      {selectedIds.has(a.id)
+                        ? <CheckSquare className="w-4 h-4 text-accent" />
+                        : <Square className="w-4 h-4 text-text-muted hover:text-text-primary transition-colors" />}
+                    </td>
                     <td className="px-4 py-3 text-sm font-medium text-text-primary flex items-center gap-2">
                       <AssetIcon type={a.asset_type} className="w-4 h-4 text-text-muted" />
                       {a.name}
@@ -437,14 +981,14 @@ export default function Assets() {
                 ))}
                 {typeFilteredAssets.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-text-muted">
+                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-text-muted">
                       No assets yet
                     </td>
                   </tr>
                 )}
                 {typeFilteredAssets.length > 0 && assetsForTable.length === 0 && (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-center text-sm text-text-muted">
+                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-text-muted">
                       No assets match this filter. Try another name or address.
                     </td>
                   </tr>

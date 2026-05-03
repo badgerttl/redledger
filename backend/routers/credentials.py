@@ -33,14 +33,15 @@ class CredentialUpdate(BaseModel):
     asset_ids: Optional[list[int]] = None
 
 
-def _serialize(c: Credential) -> dict:
+def _serialize(c: Credential, *, mask_secret: bool = False) -> dict:
     return {
         "id": c.id,
         "engagement_id": c.engagement_id,
         "asset_ids": [a.id for a in c.assets],
         "assets": [{"id": a.id, "name": a.name, "target": a.target} for a in c.assets],
         "username": c.username,
-        "secret": c.secret,
+        "secret": "••••••••" if mask_secret and c.secret else c.secret,
+        "secret_masked": mask_secret and bool(c.secret),
         "secret_type": c.secret_type,
         "source": c.source,
         "access_level": c.access_level,
@@ -53,7 +54,7 @@ def _serialize(c: Credential) -> dict:
 
 @router.get("/engagements/{engagement_id}/credentials")
 def list_credentials(engagement_id: int, db: Session = Depends(get_db)):
-    return [_serialize(c) for c in db.query(Credential).filter(Credential.engagement_id == engagement_id).options(
+    return [_serialize(c, mask_secret=True) for c in db.query(Credential).filter(Credential.engagement_id == engagement_id).options(
         selectinload(Credential.assets),
     ).order_by(Credential.created_at.desc()).all()]
 
@@ -112,7 +113,7 @@ def list_credentials_for_asset(asset_id: int, db: Session = Depends(get_db)):
         .order_by(Credential.created_at.desc())
         .all()
     )
-    return [_serialize(c) for c in creds]
+    return [_serialize(c, mask_secret=True) for c in creds]
 
 
 @router.post("/credentials/{credential_id}/confirm")
@@ -123,7 +124,7 @@ def confirm_credential(credential_id: int, db: Session = Depends(get_db)):
     cred.status = "confirmed"
     db.commit()
     db.refresh(cred)
-    return _serialize(cred)
+    return _serialize(cred, mask_secret=True)
 
 
 @router.delete("/credentials/{credential_id}", status_code=204)

@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
-import { Settings as SettingsIcon, Sun, Moon, Download, Upload, Loader2 } from 'lucide-react';
+import { Settings as SettingsIcon, Sun, Moon, Download, Upload, Loader2, Pencil, Trash2, Check, X, Plus, Tag } from 'lucide-react';
 import api from '../api/client';
 import { DEFAULT_ASSISTANT_CONTEXT_TOKENS } from '../assistant/storageKeys';
 import { COLOR_THEMES, applyColorTheme, applyDarkMode, applyFontSize } from '../theme/documentTheme';
@@ -127,6 +127,54 @@ export default function Settings() {
     } catch {
       toast.error('Failed to save settings');
     }
+  };
+
+  const TAG_COLORS = ['#6366f1', '#ef4444', '#f97316', '#eab308', '#22c55e', '#3b82f6', '#8b5cf6', '#ec4899'];
+
+  const [tags, setTags] = useState([]);
+  const [editingTagId, setEditingTagId] = useState(null);
+  const [editTagName, setEditTagName] = useState('');
+  const [editTagColor, setEditTagColor] = useState('');
+  const [newTagName, setNewTagName] = useState('');
+  const [newTagColor, setNewTagColor] = useState(TAG_COLORS[0]);
+  const [showNewTag, setShowNewTag] = useState(false);
+  const [deletingTagId, setDeletingTagId] = useState(null);
+
+  useEffect(() => {
+    api.get('/tags').then(({ data }) => setTags(data)).catch(() => {});
+  }, []);
+
+  const startEditTag = (t) => {
+    setEditingTagId(t.id);
+    setEditTagName(t.name);
+    setEditTagColor(t.color);
+  };
+
+  const saveEditTag = async (tagId) => {
+    if (!editTagName.trim()) return;
+    try {
+      const { data } = await api.patch(`/tags/${tagId}`, { name: editTagName.trim(), color: editTagColor });
+      setTags((prev) => prev.map((t) => t.id === tagId ? data : t));
+      setEditingTagId(null);
+    } catch (err) { toast.error(err.message); }
+  };
+
+  const deleteTag = async (tagId) => {
+    try {
+      await api.delete(`/tags/${tagId}`);
+      setTags((prev) => prev.filter((t) => t.id !== tagId));
+      setDeletingTagId(null);
+    } catch (err) { toast.error(err.message); }
+  };
+
+  const createTag = async () => {
+    if (!newTagName.trim()) return;
+    try {
+      const { data } = await api.post('/tags', { name: newTagName.trim(), color: newTagColor });
+      setTags((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+      setNewTagName('');
+      setShowNewTag(false);
+    } catch (err) { toast.error(err.message); }
   };
 
   const CODE_REVIEW_DEFAULT = `You are an offensive security researcher conducting an authorized penetration test. Analyze the provided code for security vulnerabilities from an attacker's perspective.
@@ -348,6 +396,125 @@ Be specific and technical. Include actual exploit payloads where possible. Do no
                 Save code review settings
               </button>
             </div>
+          </div>
+        </section>
+
+        <section>
+          <h2 className="mb-3 text-xs font-semibold uppercase tracking-wide text-text-muted">Tags</h2>
+          <div className="card">
+            {tags.length === 0 && !showNewTag && (
+              <p className="text-sm text-text-muted mb-3">No tags yet.</p>
+            )}
+
+            {tags.length > 0 && (
+              <div className="divide-y divide-border mb-3">
+                {tags.map((t) => (
+                  <div key={t.id} className="flex items-center gap-3 py-2.5 first:pt-0 last:pb-0">
+                    {editingTagId === t.id ? (
+                      <>
+                        {/* Color swatches */}
+                        <div className="flex gap-1.5 shrink-0">
+                          {TAG_COLORS.map((c) => (
+                            <button
+                              key={c}
+                              type="button"
+                              onClick={() => setEditTagColor(c)}
+                              className="w-4 h-4 rounded-full transition-transform hover:scale-110 shrink-0"
+                              style={{
+                                backgroundColor: c,
+                                outline: editTagColor === c ? `2px solid ${c}` : 'none',
+                                outlineOffset: '2px',
+                              }}
+                            />
+                          ))}
+                        </div>
+                        <input
+                          className="input text-sm flex-1"
+                          value={editTagName}
+                          autoFocus
+                          onChange={(e) => setEditTagName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') saveEditTag(t.id);
+                            if (e.key === 'Escape') setEditingTagId(null);
+                          }}
+                        />
+                        <button onClick={() => saveEditTag(t.id)} className="text-green-500 hover:text-green-400 transition-colors" title="Save">
+                          <Check className="w-4 h-4" />
+                        </button>
+                        <button onClick={() => setEditingTagId(null)} className="text-text-muted hover:text-text-primary transition-colors" title="Cancel">
+                          <X className="w-4 h-4" />
+                        </button>
+                      </>
+                    ) : deletingTagId === t.id ? (
+                      <>
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                        <span className="text-sm text-text-primary flex-1">Delete <strong>{t.name}</strong>? Removes from all assets and findings.</span>
+                        <button onClick={() => deleteTag(t.id)} className="btn-ghost text-xs text-red-400 hover:text-red-300">Delete</button>
+                        <button onClick={() => setDeletingTagId(null)} className="btn-ghost text-xs text-text-muted">Cancel</button>
+                      </>
+                    ) : (
+                      <>
+                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: t.color }} />
+                        <span className="text-sm text-text-primary flex-1">{t.name}</span>
+                        <button onClick={() => startEditTag(t)} className="text-text-muted hover:text-accent transition-colors p-1" title="Rename">
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                        <button onClick={() => setDeletingTagId(t.id)} className="text-text-muted hover:text-red-400 transition-colors p-1" title="Delete">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {showNewTag ? (
+              <div className="flex flex-col gap-2 p-3 rounded-lg bg-input border border-border">
+                <div className="flex gap-1.5 flex-wrap">
+                  {TAG_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setNewTagColor(c)}
+                      className="w-5 h-5 rounded-full transition-transform hover:scale-110 shrink-0"
+                      style={{
+                        backgroundColor: c,
+                        outline: newTagColor === c ? `2px solid ${c}` : 'none',
+                        outlineOffset: '2px',
+                      }}
+                    />
+                  ))}
+                </div>
+                <input
+                  className="input text-sm"
+                  placeholder="Tag name…"
+                  value={newTagName}
+                  autoFocus
+                  onChange={(e) => setNewTagName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') createTag();
+                    if (e.key === 'Escape') { setShowNewTag(false); setNewTagName(''); }
+                  }}
+                />
+                <div className="flex gap-2">
+                  <button type="button" onClick={createTag} disabled={!newTagName.trim()} className="btn-primary text-xs flex-1">
+                    Create tag
+                  </button>
+                  <button type="button" onClick={() => { setShowNewTag(false); setNewTagName(''); }} className="btn-ghost text-xs">
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowNewTag(true)}
+                className="btn-secondary text-xs flex items-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" /> New tag
+              </button>
+            )}
           </div>
         </section>
 

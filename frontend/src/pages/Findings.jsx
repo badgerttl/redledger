@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useLayoutEffect, useCallback, useMemo } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import toast from 'react-hot-toast';
 import SeverityBadge from '../components/SeverityBadge';
@@ -11,7 +11,7 @@ import MarkdownViewer from '../components/MarkdownViewer';
 import { parseSseLines } from '../assistant/sseUtils';
 import { ASSISTANT_MODEL_STORAGE_KEY } from '../assistant/storageKeys';
 import { useSettings } from '../context/SettingsContext';
-import { Plus, Trash2, X, FileText, Paperclip, Sparkles, Edit2, Square, RefreshCw, Download, ChevronUp, ChevronDown } from 'lucide-react';
+import { Plus, Trash2, X, FileText, Paperclip, Sparkles, Edit2, Square, RefreshCw, Download, ChevronUp, ChevronDown, CheckSquare } from 'lucide-react';
 
 const SEVERITIES = ['', 'Critical', 'High', 'Medium', 'Low', 'Info'];
 const STATUSES = ['', 'draft', 'confirmed', 'reported', 'remediated'];
@@ -94,6 +94,26 @@ export default function Findings() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { settings } = useSettings();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const filterSeverity = searchParams.get('sev') || '';
+  const filterStatus = searchParams.get('status') || '';
+  const setFilterSeverity = (val) => setSearchParams((prev) => {
+    const next = new URLSearchParams(prev);
+    if (val) next.set('sev', val); else next.delete('sev');
+    return next;
+  });
+  const setFilterStatus = (val) => setSearchParams((prev) => {
+    const next = new URLSearchParams(prev);
+    if (val) next.set('status', val); else next.delete('status');
+    return next;
+  });
+  const clearFilters = () => setSearchParams((prev) => {
+    const next = new URLSearchParams(prev);
+    next.delete('sev'); next.delete('status');
+    return next;
+  });
+
   const [findings, setFindings] = useState([]);
   const [assets, setAssets] = useState([]);
   const [showCreate, setShowCreate] = useState(false);
@@ -101,8 +121,6 @@ export default function Findings() {
 
   // Table controls
   const [searchQuery, setSearchQuery] = useState('');
-  const [filterSeverity, setFilterSeverity] = useState('');
-  const [filterStatus, setFilterStatus] = useState('');
   const [filterAsset, setFilterAsset] = useState('');
   const [sortKey, setSortKey] = useState('created_at');
   const [sortDir, setSortDir] = useState('desc');
@@ -134,6 +152,9 @@ export default function Findings() {
     const el = streamScrollRef.current;
     if (el) el.scrollTop = el.scrollHeight;
   }, [aiStreamRaw]);
+
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkStatusWorking, setBulkStatusWorking] = useState(false);
 
   const [refresh, setRefresh] = useState(0);
   const reload = () => setRefresh((r) => r + 1);
@@ -397,6 +418,48 @@ export default function Findings() {
     } catch (err) {
       toast.error(err.message);
     }
+  };
+
+  // ── Bulk actions ───────────────────────────────────────────────────────────
+
+  const toggleSelect = (fid) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(fid) ? next.delete(fid) : next.add(fid);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds((prev) =>
+      prev.size === visibleFindings.length
+        ? new Set()
+        : new Set(visibleFindings.map((f) => f.id))
+    );
+  };
+
+  const handleBulkStatus = async (status) => {
+    if (!selectedIds.size || !status) return;
+    setBulkStatusWorking(true);
+    try {
+      await Promise.all([...selectedIds].map((fid) => api.patch(`/findings/${fid}`, { status })));
+      toast.success(`Updated ${selectedIds.size} finding${selectedIds.size !== 1 ? 's' : ''}`);
+      setSelectedIds(new Set());
+      reload();
+    } catch (err) { toast.error(err.message); }
+    setBulkStatusWorking(false);
+  };
+
+  const handleBulkDelete = async () => {
+    if (!selectedIds.size) return;
+    setBulkStatusWorking(true);
+    try {
+      await Promise.all([...selectedIds].map((fid) => api.delete(`/findings/${fid}`)));
+      toast.success(`Deleted ${selectedIds.size} finding${selectedIds.size !== 1 ? 's' : ''}`);
+      setSelectedIds(new Set());
+      reload();
+    } catch (err) { toast.error(err.message); }
+    setBulkStatusWorking(false);
   };
 
   // ── Shared helpers ─────────────────────────────────────────────────────────
@@ -834,7 +897,7 @@ export default function Findings() {
             <button
               type="button"
               className="btn-ghost text-xs text-text-muted"
-              onClick={() => { setSearchQuery(''); setFilterSeverity(''); setFilterStatus(''); setFilterAsset(''); }}
+              onClick={() => { setSearchQuery(''); setFilterAsset(''); clearFilters(); }}
             >
               <X className="w-3 h-3 inline-block mr-0.5" /> Clear filters
             </button>
@@ -843,11 +906,56 @@ export default function Findings() {
         </div>
       </div>
 
+      {/* ── Bulk action bar ──────────────────────────────────────────────────── */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center gap-3 mb-3 px-4 py-2.5 rounded-lg border border-accent/30 bg-accent/5">
+          <span className="text-sm font-medium text-text-primary">{selectedIds.size} selected</span>
+          <div className="flex items-center gap-2 ml-auto">
+            <select
+              className="input text-xs py-1 h-auto"
+              defaultValue=""
+              disabled={bulkStatusWorking}
+              onChange={(e) => { if (e.target.value) handleBulkStatus(e.target.value); e.target.value = ''; }}
+            >
+              <option value="" disabled>Set status…</option>
+              {STATUSES.filter(Boolean).map((s) => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <button
+              type="button"
+              onClick={handleBulkDelete}
+              disabled={bulkStatusWorking}
+              className="btn-ghost text-xs text-red-400 hover:text-red-300 flex items-center gap-1"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Delete
+            </button>
+            <button
+              type="button"
+              onClick={() => setSelectedIds(new Set())}
+              className="btn-ghost text-xs text-text-muted"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* ── Table ────────────────────────────────────────────────────────────── */}
       <div className="card p-0 overflow-hidden">
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">
+              <th className="w-10 px-4 py-3">
+                <button
+                  type="button"
+                  onClick={toggleSelectAll}
+                  className="text-text-muted hover:text-text-primary transition-colors"
+                  title={selectedIds.size === visibleFindings.length && visibleFindings.length > 0 ? 'Deselect all' : 'Select all'}
+                >
+                  {selectedIds.size === visibleFindings.length && visibleFindings.length > 0
+                    ? <CheckSquare className="w-4 h-4 text-accent" />
+                    : <Square className="w-4 h-4" />}
+                </button>
+              </th>
               {[
                 { key: 'title', label: 'Title' },
                 { key: 'severity', label: 'Severity' },
@@ -875,7 +983,12 @@ export default function Findings() {
           </thead>
           <tbody>
             {visibleFindings.map((f) => (
-              <tr key={f.id} className="table-row cursor-pointer" onClick={() => navigate(`/e/${id}/findings/${f.id}`, { state: { from: `/e/${id}/findings`, fromLabel: 'Findings' } })}>
+              <tr key={f.id} className={`table-row cursor-pointer ${selectedIds.has(f.id) ? 'bg-accent/5' : ''}`} onClick={() => navigate(`/e/${id}/findings/${f.id}`, { state: { from: `/e/${id}/findings`, fromLabel: 'Findings' } })}>
+                <td className="px-4 py-3" onClick={(e) => { e.stopPropagation(); toggleSelect(f.id); }}>
+                  {selectedIds.has(f.id)
+                    ? <CheckSquare className="w-4 h-4 text-accent" />
+                    : <Square className="w-4 h-4 text-text-muted hover:text-text-primary transition-colors" />}
+                </td>
                 <td className="px-4 py-3 text-sm font-medium text-text-primary">{f.title}</td>
                 <td className="px-4 py-3"><SeverityBadge severity={f.severity} /></td>
                 <td className="px-4 py-3 text-sm text-text-secondary">{f.cvss_score ?? '—'}</td>
@@ -906,10 +1019,10 @@ export default function Findings() {
               </tr>
             ))}
             {findings.length === 0 && (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-text-muted">No findings yet</td></tr>
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-sm text-text-muted">No findings yet</td></tr>
             )}
             {findings.length > 0 && visibleFindings.length === 0 && (
-              <tr><td colSpan={8} className="px-4 py-8 text-center text-sm text-text-muted">No findings match the current filters.</td></tr>
+              <tr><td colSpan={9} className="px-4 py-8 text-center text-sm text-text-muted">No findings match the current filters.</td></tr>
             )}
           </tbody>
         </table>

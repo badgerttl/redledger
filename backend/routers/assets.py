@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session, selectinload
 from backend.database import get_db
 from backend.models import Asset, Engagement, Tag
 
+VALID_ASSET_TYPES = {"host", "web_page", "api_endpoint", "domain", "network", "database", "git_repo", "mobile_app", "cloud_resource"}
+
 router = APIRouter(tags=["assets"])
 
 
@@ -91,3 +93,45 @@ def delete_asset(asset_id: int, db: Session = Depends(get_db)):
         raise HTTPException(404, "Asset not found")
     db.delete(asset)
     db.commit()
+
+
+class AssetImportRow(BaseModel):
+    name: str
+    asset_type: str = "host"
+    target: str = ""
+    os: str = ""
+
+
+class AssetImportRequest(BaseModel):
+    assets: list[AssetImportRow]
+
+
+@router.post("/engagements/{engagement_id}/assets/import")
+def import_assets(engagement_id: int, body: AssetImportRequest, db: Session = Depends(get_db)):
+    if not db.query(Engagement).filter(Engagement.id == engagement_id).first():
+        raise HTTPException(404, "Engagement not found")
+    if not body.assets:
+        raise HTTPException(422, "No assets to import")
+
+    errors = []
+    for i, row in enumerate(body.assets):
+        if not row.name.strip():
+            errors.append(f"Row {i + 1}: name is required")
+        if row.asset_type not in VALID_ASSET_TYPES:
+            errors.append(f"Row {i + 1}: invalid asset_type '{row.asset_type}'")
+    if errors:
+        raise HTTPException(422, "; ".join(errors))
+
+    created = []
+    for row in body.assets:
+        asset = Asset(
+            engagement_id=engagement_id,
+            name=row.name.strip(),
+            asset_type=row.asset_type,
+            target=row.target.strip(),
+            os=row.os.strip(),
+        )
+        db.add(asset)
+        created.append(asset)
+    db.commit()
+    return {"imported": len(created)}

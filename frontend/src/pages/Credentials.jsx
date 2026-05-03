@@ -94,12 +94,12 @@ function CredTable({ creds, assets, engagementId, editingId, editForm, setEditFo
                 <td className="px-4 py-3 text-sm font-mono text-text-primary">{c.username || '—'}</td>
                 <td className="px-4 py-3 text-sm font-mono">
                   <div className="flex items-center gap-2">
-                    <span className="text-text-secondary">{revealed[c.id] ? c.secret : '••••••••'}</span>
+                    <span className="text-text-secondary">{revealed[c.id] != null ? (revealed[c.id] || '—') : '••••••••'}</span>
                     <button
                       onClick={(e) => { e.stopPropagation(); onToggleReveal(c.id); }}
                       className="text-text-muted hover:text-text-primary transition-colors"
                     >
-                      {revealed[c.id] ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                      {revealed[c.id] != null ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
                     </button>
                   </div>
                 </td>
@@ -199,17 +199,21 @@ export default function Credentials() {
     } catch (err) { toast.error(err.message); }
   };
 
-  const startEdit = (c) => {
+  const startEdit = async (c) => {
     setEditingId(c.id);
     setEditForm({
       username: c.username || '',
-      secret: c.secret || '',
+      secret: '',
       secret_type: c.secret_type || 'plaintext',
       source: c.source || '',
       access_level: c.access_level || '',
       notes: c.notes || '',
       asset_ids: c.asset_ids || [],
     });
+    try {
+      const { data } = await api.get(`/credentials/${c.id}`);
+      setEditForm((prev) => ({ ...prev, secret: data.secret || '' }));
+    } catch { /* leave blank */ }
   };
 
   const handleUpdate = async () => {
@@ -238,8 +242,15 @@ export default function Credentials() {
     } catch (err) { toast.error(err.message); }
   };
 
-  const toggleReveal = (credId) => {
-    setRevealed((prev) => ({ ...prev, [credId]: !prev[credId] }));
+  const toggleReveal = async (credId) => {
+    if (revealed[credId] != null) {
+      setRevealed((prev) => { const next = { ...prev }; delete next[credId]; return next; });
+      return;
+    }
+    try {
+      const { data } = await api.get(`/credentials/${credId}`);
+      setRevealed((prev) => ({ ...prev, [credId]: data.secret || '' }));
+    } catch (err) { toast.error(err.message); }
   };
 
   const confirmed = credentials.filter((c) => c.status !== 'review');
