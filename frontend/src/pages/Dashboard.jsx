@@ -10,11 +10,28 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import {
   Plus, Trash2, Calendar, User, Shield, Clock,
   Server, Search, KeyRound, FileSearch, Target, StickyNote,
-  ChevronDown, ChevronRight, Loader2, Save, X,
+  ChevronDown, ChevronRight, ChevronUp, Loader2, Save, X,
 } from 'lucide-react';
-import { assetTypeLabel, AssetIcon } from '../utils/assetTypes';
+import { ASSET_TYPES, assetTypeLabel, AssetIcon } from '../utils/assetTypes';
 import MarkdownEditor from '../components/MarkdownEditor';
 import MarkdownViewer from '../components/MarkdownViewer';
+
+const ASSET_TYPE_ORDER = Object.fromEntries(ASSET_TYPES.map((t, i) => [t.value, i]));
+const SEV_ORDER = { Critical: 0, High: 1, Medium: 2, Low: 3, Info: 4 };
+const STATUS_ORDER = { draft: 0, confirmed: 1, reported: 2, remediated: 3, review: 4 };
+
+function tagsSortKey(item) {
+  const tags = item.tags;
+  if (!tags?.length) return '';
+  return tags
+    .map((t) => t.name)
+    .sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }))
+    .join(', ');
+}
+
+function firstLinkedAssetName(item, key = 'assets') {
+  return item[key]?.[0]?.name || '';
+}
 
 export default function Dashboard() {
   const { id } = useParams();
@@ -38,6 +55,9 @@ export default function Dashboard() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [engagementSearchQuery, setEngagementSearchQuery] = useState('');
+  const [assetSort, setAssetSort] = useState({ key: 'name', dir: 'asc' });
+  const [findingSort, setFindingSort] = useState({ key: 'created_at', dir: 'desc' });
+  const [credentialSort, setCredentialSort] = useState({ key: 'username', dir: 'asc' });
 
   useEffect(() => {
     if (searchParams.get('new') === '1') {
@@ -120,27 +140,64 @@ export default function Dashboard() {
   const q = searchQuery.trim().toLowerCase();
 
   const filteredAssets = useMemo(() => {
-    if (!q) return assets;
-    return assets.filter((a) =>
+    const list = q ? assets.filter((a) =>
       (a.name || '').toLowerCase().includes(q) ||
       (a.target || '').toLowerCase().includes(q) ||
       (a.os || '').toLowerCase().includes(q)
-    );
-  }, [assets, q]);
+    ) : assets;
+    const mul = assetSort.dir === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      let cmp = 0;
+      switch (assetSort.key) {
+        case 'type':
+          cmp = (ASSET_TYPE_ORDER[a.asset_type] ?? 99) - (ASSET_TYPE_ORDER[b.asset_type] ?? 99); break;
+        case 'target':
+          cmp = (a.target || '').localeCompare(b.target || '', undefined, { numeric: true, sensitivity: 'base' }); break;
+        case 'os':
+          cmp = (a.os || '').localeCompare(b.os || '', undefined, { sensitivity: 'base' }); break;
+        case 'tags':
+          cmp = tagsSortKey(a).localeCompare(tagsSortKey(b), undefined, { sensitivity: 'base' }); break;
+        default:
+          cmp = (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }); break;
+      }
+      if (cmp !== 0) return cmp * mul;
+      return a.id - b.id;
+    });
+  }, [assets, q, assetSort]);
 
   const filteredFindings = useMemo(() => {
-    if (!q) return findings;
-    return findings.filter((f) =>
+    const list = q ? findings.filter((f) =>
       (f.title || '').toLowerCase().includes(q) ||
       (f.severity || '').toLowerCase().includes(q) ||
       (f.status || '').toLowerCase().includes(q) ||
       f.affected_assets?.some((a) => (a.name || '').toLowerCase().includes(q))
-    );
-  }, [findings, q]);
+    ) : findings;
+    const mul = findingSort.dir === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      let cmp = 0;
+      switch (findingSort.key) {
+        case 'title':
+          cmp = (a.title || '').localeCompare(b.title || '', undefined, { sensitivity: 'base' }); break;
+        case 'severity':
+          cmp = (SEV_ORDER[a.severity] ?? 5) - (SEV_ORDER[b.severity] ?? 5); break;
+        case 'cvss_score':
+          cmp = (a.cvss_score ?? -1) - (b.cvss_score ?? -1); break;
+        case 'status':
+          cmp = (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9); break;
+        case 'phase':
+          cmp = (a.phase || '').localeCompare(b.phase || '', undefined, { sensitivity: 'base' }); break;
+        case 'assets':
+          cmp = firstLinkedAssetName(a, 'affected_assets').localeCompare(firstLinkedAssetName(b, 'affected_assets'), undefined, { sensitivity: 'base' }); break;
+        default:
+          cmp = (a.created_at || '').localeCompare(b.created_at || ''); break;
+      }
+      if (cmp !== 0) return cmp * mul;
+      return a.id - b.id;
+    });
+  }, [findings, q, findingSort]);
 
   const filteredCredentials = useMemo(() => {
-    if (!q) return credentials;
-    return credentials.filter((c) =>
+    const list = q ? credentials.filter((c) =>
       (c.username || '').toLowerCase().includes(q) ||
       (c.source || '').toLowerCase().includes(q) ||
       (c.access_level || '').toLowerCase().includes(q) ||
@@ -149,8 +206,50 @@ export default function Dashboard() {
         (a.name || '').toLowerCase().includes(q) ||
         (a.target || '').toLowerCase().includes(q)
       )
-    );
-  }, [credentials, q]);
+    ) : credentials;
+    const mul = credentialSort.dir === 'asc' ? 1 : -1;
+    return [...list].sort((a, b) => {
+      let cmp = 0;
+      switch (credentialSort.key) {
+        case 'type':
+          cmp = (a.secret_type || '').localeCompare(b.secret_type || '', undefined, { sensitivity: 'base' }); break;
+        case 'access':
+          cmp = (a.access_level || '').localeCompare(b.access_level || '', undefined, { sensitivity: 'base' }); break;
+        case 'source':
+          cmp = (a.source || '').localeCompare(b.source || '', undefined, { sensitivity: 'base' }); break;
+        case 'assets':
+          cmp = firstLinkedAssetName(a).localeCompare(firstLinkedAssetName(b), undefined, { sensitivity: 'base' }); break;
+        default:
+          cmp = (a.username || '').localeCompare(b.username || '', undefined, { sensitivity: 'base' }); break;
+      }
+      if (cmp !== 0) return cmp * mul;
+      return a.id - b.id;
+    });
+  }, [credentials, q, credentialSort]);
+
+  const toggleAssetSort = (key) => {
+    setAssetSort((currentSort) => (
+      currentSort.key === key
+        ? { key, dir: currentSort.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: 'asc' }
+    ));
+  };
+
+  const toggleFindingSort = (key) => {
+    setFindingSort((currentSort) => (
+      currentSort.key === key
+        ? { key, dir: currentSort.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: 'asc' }
+    ));
+  };
+
+  const toggleCredentialSort = (key) => {
+    setCredentialSort((currentSort) => (
+      currentSort.key === key
+        ? { key, dir: currentSort.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: 'asc' }
+    ));
+  };
 
   const filteredEngagements = useMemo(() => {
     const eq = engagementSearchQuery.trim().toLowerCase();
@@ -385,11 +484,11 @@ export default function Dashboard() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Name</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Type</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Target</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">OS</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Tags</th>
+              <SortableTh label="Name" sortKey="name" currentSort={assetSort} onSort={toggleAssetSort} />
+              <SortableTh label="Type" sortKey="type" currentSort={assetSort} onSort={toggleAssetSort} />
+              <SortableTh label="Target" sortKey="target" currentSort={assetSort} onSort={toggleAssetSort} />
+              <SortableTh label="OS" sortKey="os" currentSort={assetSort} onSort={toggleAssetSort} />
+              <SortableTh label="Tags" sortKey="tags" currentSort={assetSort} onSort={toggleAssetSort} />
             </tr>
           </thead>
           <tbody>
@@ -426,12 +525,12 @@ export default function Dashboard() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Title</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Severity</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">CVSS</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Status</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Phase</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Assets</th>
+              <SortableTh label="Title" sortKey="title" currentSort={findingSort} onSort={toggleFindingSort} />
+              <SortableTh label="Severity" sortKey="severity" currentSort={findingSort} onSort={toggleFindingSort} />
+              <SortableTh label="CVSS" sortKey="cvss_score" currentSort={findingSort} onSort={toggleFindingSort} />
+              <SortableTh label="Status" sortKey="status" currentSort={findingSort} onSort={toggleFindingSort} />
+              <SortableTh label="Phase" sortKey="phase" currentSort={findingSort} onSort={toggleFindingSort} />
+              <SortableTh label="Assets" sortKey="assets" currentSort={findingSort} onSort={toggleFindingSort} />
             </tr>
           </thead>
           <tbody>
@@ -470,11 +569,11 @@ export default function Dashboard() {
         <table className="w-full">
           <thead>
             <tr className="border-b border-border">
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Username</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Type</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Access Level</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Source</th>
-              <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">Assets</th>
+              <SortableTh label="Username" sortKey="username" currentSort={credentialSort} onSort={toggleCredentialSort} />
+              <SortableTh label="Type" sortKey="type" currentSort={credentialSort} onSort={toggleCredentialSort} />
+              <SortableTh label="Access Level" sortKey="access" currentSort={credentialSort} onSort={toggleCredentialSort} />
+              <SortableTh label="Source" sortKey="source" currentSort={credentialSort} onSort={toggleCredentialSort} />
+              <SortableTh label="Assets" sortKey="assets" currentSort={credentialSort} onSort={toggleCredentialSort} />
             </tr>
           </thead>
           <tbody>
@@ -691,5 +790,25 @@ function SectionHeader({ title, icon, count, filteredCount }) {
         )}
       </h2>
     </div>
+  );
+}
+
+function SortableTh({ label, sortKey, currentSort, onSort }) {
+  const active = currentSort.key === sortKey;
+  return (
+    <th className="text-left px-4 py-2.5 text-xs font-medium text-text-muted uppercase tracking-wider">
+      <button
+        type="button"
+        onClick={() => onSort(sortKey)}
+        className="inline-flex items-center gap-1 hover:text-text-primary transition-colors"
+      >
+        {label}
+        {active && (
+          currentSort.dir === 'asc'
+            ? <ChevronUp className="w-3.5 h-3.5" />
+            : <ChevronDown className="w-3.5 h-3.5" />
+        )}
+      </button>
+    </th>
   );
 }

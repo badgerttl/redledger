@@ -3,6 +3,8 @@ WORKDIR /app/frontend
 COPY frontend/package.json frontend/package-lock.json* ./
 RUN npm install
 COPY frontend/ ./
+COPY backend/wstg_checklist.json ../backend/wstg_checklist.json
+COPY backend/scripts/download_wstg.mjs ../backend/scripts/download_wstg.mjs
 RUN npm run build
 
 FROM --platform=linux/arm64 docker.io/library/python:3.12-slim
@@ -18,6 +20,7 @@ COPY backend/requirements.txt ./backend/requirements.txt
 RUN pip install --no-cache-dir -r backend/requirements.txt
 
 COPY backend/ ./backend/
+COPY --from=frontend-build /app/backend/guides/wstg ./backend/guides/wstg
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
 ENV DATA_DIR=/app/data

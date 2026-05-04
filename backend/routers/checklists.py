@@ -5,7 +5,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from backend.database import get_db
-from backend.models import ChecklistItem
+from backend.models import ChecklistItem, Engagement
+from backend.utils import add_missing_default_checklists
 
 router = APIRouter(tags=["checklists"])
 
@@ -37,6 +38,14 @@ def list_checklists(engagement_id: int, db: Session = Depends(get_db)):
     for item in items:
         grouped.setdefault(item.phase, []).append(_serialize(item))
     return grouped
+
+
+@router.post("/engagements/{engagement_id}/checklists/methodology/sync")
+def sync_methodology_checklists(engagement_id: int, db: Session = Depends(get_db)):
+    engagement = db.query(Engagement).filter(Engagement.id == engagement_id).first()
+    if not engagement:
+        raise HTTPException(404, "Engagement not found")
+    return add_missing_default_checklists(db, engagement_id)
 
 
 @router.patch("/checklists/{item_id}")

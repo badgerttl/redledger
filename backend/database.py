@@ -42,6 +42,13 @@ def ensure_sqlite_schema() -> None:
                 text("ALTER TABLE credentials ADD COLUMN import_source TEXT NOT NULL DEFAULT ''")
             )
 
+        info = conn.execute(text("PRAGMA table_info(assets)"))
+        asset_cols = {row[1] for row in info.fetchall()}
+        if "parent_asset_id" not in asset_cols:
+            conn.execute(
+                text("ALTER TABLE assets ADD COLUMN parent_asset_id INTEGER REFERENCES assets(id) ON DELETE SET NULL")
+            )
+
         r2 = conn.execute(
             text("SELECT name FROM sqlite_master WHERE type='table' AND name='semgrep_results'")
         )

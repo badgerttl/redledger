@@ -153,6 +153,14 @@ async def refresh_wstg():
     Saves to backend/guides/wstg/{categories,tests}/ for offline use.
     Regenerates the navigation index from downloaded data.
     """
+    return await download_wstg_content()
+
+
+async def download_wstg_content() -> dict:
+    """
+    Download all WSTG category READMEs and individual test files from OWASP GitHub.
+    Used by both the API refresh endpoint and the build-time cache script.
+    """
     _ensure_dirs()
     index = _get_index()
     stats = {"categories": 0, "tests": 0, "errors": []}

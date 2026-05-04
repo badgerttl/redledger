@@ -1,0 +1,596 @@
+{
+  "version": "4.2",
+  "categories": [
+    {
+      "key": "info",
+      "id": "WSTG-INFO",
+      "name": "Information Gathering",
+      "folder": "01-Information_Gathering",
+      "tests": [
+        {
+          "id": "WSTG-INFO-01",
+          "name": "Search Engine Discovery & Reconnaissance",
+          "description": "Use search engines to find exposed information, internal paths, credentials, or sensitive documents indexed publicly."
+        },
+        {
+          "id": "WSTG-INFO-02",
+          "name": "Fingerprint Web Server",
+          "description": "Identify the web server type, version, and underlying OS via banners, headers, and error responses."
+        },
+        {
+          "id": "WSTG-INFO-03",
+          "name": "Review Webserver Metafiles for Information Leakage",
+          "description": "Examine robots.txt, sitemap.xml, and other metafiles for sensitive path disclosures."
+        },
+        {
+          "id": "WSTG-INFO-04",
+          "name": "Enumerate Applications on Webserver",
+          "description": "Identify all web applications hosted on the same server via port scanning and virtual host enumeration."
+        },
+        {
+          "id": "WSTG-INFO-05",
+          "name": "Review Webpage Content for Information Leakage",
+          "description": "Inspect HTML comments, hidden fields, JavaScript files, and source code for sensitive information."
+        },
+        {
+          "id": "WSTG-INFO-06",
+          "name": "Identify Application Entry Points",
+          "description": "Map all user-controlled input vectors: forms, query parameters, headers, cookies, API endpoints."
+        },
+        {
+          "id": "WSTG-INFO-07",
+          "name": "Map Execution Paths Through Application",
+          "description": "Trace application workflows and identify all code paths that could process attacker-controlled input."
+        },
+        {
+          "id": "WSTG-INFO-08",
+          "name": "Fingerprint Web Application Framework",
+          "description": "Identify the framework and version (Django, Rails, Laravel, etc.) via headers, cookies, and error pages."
+        },
+        {
+          "id": "WSTG-INFO-09",
+          "name": "Fingerprint Web Application",
+          "description": "Identify the CMS or application type (WordPress, Drupal, etc.) and enumerate installed plugins/themes."
+        },
+        {
+          "id": "WSTG-INFO-10",
+          "name": "Map Application Architecture",
+          "description": "Identify load balancers, WAFs, CDNs, reverse proxies, and backend services in the application stack."
+        }
+      ]
+    },
+    {
+      "key": "config",
+      "id": "WSTG-CONF",
+      "name": "Configuration & Deployment Management",
+      "folder": "02-Configuration_and_Deployment_Management_Testing",
+      "tests": [
+        {
+          "id": "WSTG-CONF-01",
+          "name": "Test Network Infrastructure Configuration",
+          "description": "Review network components for misconfigurations: open ports, unpatched services, weak cipher suites."
+        },
+        {
+          "id": "WSTG-CONF-02",
+          "name": "Test Application Platform Configuration",
+          "description": "Check web server and application server config for default settings, unnecessary modules, debug modes."
+        },
+        {
+          "id": "WSTG-CONF-03",
+          "name": "Test File Extension Handling",
+          "description": "Verify how the server handles unexpected file extensions \u2014 check for source code disclosure or execution."
+        },
+        {
+          "id": "WSTG-CONF-04",
+          "name": "Review Backup & Unreferenced Files",
+          "description": "Discover backup files (.bak, .old, ~), unreferenced pages, and forgotten test files that leak source or config."
+        },
+        {
+          "id": "WSTG-CONF-05",
+          "name": "Enumerate Admin Interfaces",
+          "description": "Find admin panels, management consoles, and privileged endpoints exposed on the server."
+        },
+        {
+          "id": "WSTG-CONF-06",
+          "name": "Test HTTP Methods",
+          "description": "Enumerate enabled HTTP methods (PUT, DELETE, TRACE) and test for dangerous method abuse."
+        },
+        {
+          "id": "WSTG-CONF-07",
+          "name": "Test HTTP Strict Transport Security (HSTS)",
+          "description": "Verify HSTS header is present, has appropriate max-age, and includes subdomains where applicable."
+        },
+        {
+          "id": "WSTG-CONF-08",
+          "name": "Test RIA Cross Domain Policy",
+          "description": "Review crossdomain.xml and clientaccesspolicy.xml for overly permissive cross-domain access."
+        },
+        {
+          "id": "WSTG-CONF-09",
+          "name": "Test File Permissions",
+          "description": "Verify server files and directories have appropriate permissions; check for world-writable paths."
+        },
+        {
+          "id": "WSTG-CONF-10",
+          "name": "Test for Subdomain Takeover",
+          "description": "Identify dangling DNS entries pointing to deprovisioned cloud/SaaS resources susceptible to takeover."
+        },
+        {
+          "id": "WSTG-CONF-11",
+          "name": "Test Cloud Storage",
+          "description": "Check S3 buckets, Azure blobs, and GCS buckets for public read/write access and sensitive data exposure."
+        },
+        {
+          "id": "WSTG-CONF-12",
+          "name": "Test Content Security Policy (CSP)",
+          "description": "Evaluate the CSP header for overly permissive directives, unsafe-inline, unsafe-eval, or missing directives."
+        }
+      ]
+    },
+    {
+      "key": "identity",
+      "id": "WSTG-IDNT",
+      "name": "Identity Management",
+      "folder": "03-Identity_Management_Testing",
+      "tests": [
+        {
+          "id": "WSTG-IDNT-01",
+          "name": "Test Role Definitions",
+          "description": "Verify roles are clearly defined and enforced; check for role confusion or privilege overlap."
+        },
+        {
+          "id": "WSTG-IDNT-02",
+          "name": "Test User Registration Process",
+          "description": "Test registration for account enumeration, weak validation, and ability to register with privileged identifiers."
+        },
+        {
+          "id": "WSTG-IDNT-03",
+          "name": "Test Account Provisioning Process",
+          "description": "Verify provisioning workflows require proper authorization and cannot be abused to escalate privileges."
+        },
+        {
+          "id": "WSTG-IDNT-04",
+          "name": "Test for Account Enumeration",
+          "description": "Determine if the application leaks valid usernames via login errors, registration, or password reset responses."
+        },
+        {
+          "id": "WSTG-IDNT-05",
+          "name": "Test for Weak Username Policy",
+          "description": "Check if usernames are guessable (sequential IDs, email addresses) and if the policy enforces uniqueness."
+        }
+      ]
+    },
+    {
+      "key": "authn",
+      "id": "WSTG-ATHN",
+      "name": "Authentication",
+      "folder": "04-Authentication_Testing",
+      "tests": [
+        {
+          "id": "WSTG-ATHN-01",
+          "name": "Test Credentials Over Encrypted Channel",
+          "description": "Confirm all authentication occurs over HTTPS; check for mixed content, HTTP fallback, or credential leakage."
+        },
+        {
+          "id": "WSTG-ATHN-02",
+          "name": "Test Default Credentials",
+          "description": "Attempt login with vendor-supplied default credentials on all services and admin interfaces."
+        },
+        {
+          "id": "WSTG-ATHN-03",
+          "name": "Test Account Lockout Mechanism",
+          "description": "Test brute-force protections: lockout thresholds, reset behaviour, IP-based versus account-based lockout."
+        },
+        {
+          "id": "WSTG-ATHN-04",
+          "name": "Test for Authentication Bypass",
+          "description": "Attempt to bypass authentication via parameter manipulation, forced browsing, or request forgery."
+        },
+        {
+          "id": "WSTG-ATHN-05",
+          "name": "Test Remember Password Functionality",
+          "description": "Inspect remember-me tokens for weak entropy, insecure storage, or indefinite validity."
+        },
+        {
+          "id": "WSTG-ATHN-06",
+          "name": "Test Browser Cache Weaknesses",
+          "description": "Verify sensitive pages set Cache-Control: no-store and are not retrievable from browser back button."
+        },
+        {
+          "id": "WSTG-ATHN-07",
+          "name": "Test Weak Password Policy",
+          "description": "Review minimum length, complexity requirements, password reuse policy, and common password rejection."
+        },
+        {
+          "id": "WSTG-ATHN-08",
+          "name": "Test Security Questions",
+          "description": "Evaluate secret question/answer mechanisms for guessability, enumeration, and bypass potential."
+        },
+        {
+          "id": "WSTG-ATHN-09",
+          "name": "Test Password Reset Functionality",
+          "description": "Test reset flows for token predictability, reuse, expiry, account enumeration, and host header injection."
+        },
+        {
+          "id": "WSTG-ATHN-10",
+          "name": "Test Alternative Authentication Channels",
+          "description": "Identify weaker authentication paths (mobile app, API, legacy portal) that bypass primary controls."
+        }
+      ]
+    },
+    {
+      "key": "authz",
+      "id": "WSTG-ATHZ",
+      "name": "Authorization",
+      "folder": "05-Authorization_Testing",
+      "tests": [
+        {
+          "id": "WSTG-ATHZ-01",
+          "name": "Test Directory Traversal / File Include",
+          "description": "Test for path traversal in file parameters; attempt to read arbitrary files or include remote content."
+        },
+        {
+          "id": "WSTG-ATHZ-02",
+          "name": "Test for Authorization Schema Bypass",
+          "description": "Attempt to access privileged functions or resources by manipulating roles, parameters, or HTTP methods."
+        },
+        {
+          "id": "WSTG-ATHZ-03",
+          "name": "Test for Privilege Escalation",
+          "description": "Attempt horizontal and vertical privilege escalation by modifying user identifiers or role parameters."
+        },
+        {
+          "id": "WSTG-ATHZ-04",
+          "name": "Test for Insecure Direct Object References (IDOR)",
+          "description": "Access objects (records, files, accounts) belonging to other users by manipulating object identifiers."
+        }
+      ]
+    },
+    {
+      "key": "session",
+      "id": "WSTG-SESS",
+      "name": "Session Management",
+      "folder": "06-Session_Management_Testing",
+      "tests": [
+        {
+          "id": "WSTG-SESS-01",
+          "name": "Test Session Management Schema",
+          "description": "Analyse session token entropy, predictability, and uniqueness; verify tokens are regenerated after login."
+        },
+        {
+          "id": "WSTG-SESS-02",
+          "name": "Test Cookie Attributes",
+          "description": "Verify session cookies have Secure, HttpOnly, SameSite attributes and appropriate scope/expiry."
+        },
+        {
+          "id": "WSTG-SESS-03",
+          "name": "Test for Session Fixation",
+          "description": "Determine if the application accepts attacker-supplied session tokens or fails to rotate them on login."
+        },
+        {
+          "id": "WSTG-SESS-04",
+          "name": "Test for Exposed Session Variables",
+          "description": "Check if session tokens appear in URLs, Referer headers, logs, or are otherwise improperly exposed."
+        },
+        {
+          "id": "WSTG-SESS-05",
+          "name": "Test for CSRF",
+          "description": "Verify CSRF tokens are present, unique per session, and validated for all state-changing requests."
+        },
+        {
+          "id": "WSTG-SESS-06",
+          "name": "Test Logout Functionality",
+          "description": "Confirm logout invalidates the server-side session and that tokens cannot be reused post-logout."
+        },
+        {
+          "id": "WSTG-SESS-07",
+          "name": "Test Session Timeout",
+          "description": "Verify idle and absolute session timeouts are enforced server-side and sessions expire appropriately."
+        },
+        {
+          "id": "WSTG-SESS-08",
+          "name": "Test for Session Puzzling",
+          "description": "Check if session variables are used in multiple contexts allowing session variable overloading attacks."
+        },
+        {
+          "id": "WSTG-SESS-09",
+          "name": "Test for Session Hijacking",
+          "description": "Assess susceptibility to session hijacking via network sniffing, XSS-based token theft, or token prediction."
+        }
+      ]
+    },
+    {
+      "key": "input",
+      "id": "WSTG-INPV",
+      "name": "Input Validation",
+      "folder": "07-Input_Validation_Testing",
+      "tests": [
+        {
+          "id": "WSTG-INPV-01",
+          "name": "Test for Reflected XSS",
+          "description": "Inject script payloads into all reflected input vectors; verify output encoding and CSP effectiveness."
+        },
+        {
+          "id": "WSTG-INPV-02",
+          "name": "Test for Stored XSS",
+          "description": "Submit persistent script payloads via all stored input fields; verify they are not rendered unescaped."
+        },
+        {
+          "id": "WSTG-INPV-03",
+          "name": "Test for HTTP Verb Tampering",
+          "description": "Test for authentication/authorisation bypass by switching HTTP methods (GET vs POST vs HEAD)."
+        },
+        {
+          "id": "WSTG-INPV-04",
+          "name": "Test for HTTP Parameter Pollution",
+          "description": "Submit duplicate parameters to confuse server-side parsing and bypass input validation or WAF rules."
+        },
+        {
+          "id": "WSTG-INPV-05",
+          "name": "Test for SQL Injection",
+          "description": "Test all database-backed inputs for error-based, blind, time-based, and out-of-band SQL injection."
+        },
+        {
+          "id": "WSTG-INPV-06",
+          "name": "Test for LDAP Injection",
+          "description": "Inject LDAP metacharacters into authentication and search inputs to bypass controls or enumerate directory."
+        },
+        {
+          "id": "WSTG-INPV-07",
+          "name": "Test for XML Injection",
+          "description": "Test XML inputs for injection, XXE (external entity), and XPath injection vulnerabilities."
+        },
+        {
+          "id": "WSTG-INPV-08",
+          "name": "Test for SSI Injection",
+          "description": "Check for Server-Side Include injection in inputs that are embedded in server-parsed HTML files."
+        },
+        {
+          "id": "WSTG-INPV-09",
+          "name": "Test for XPath Injection",
+          "description": "Inject XPath syntax into inputs used to query XML data stores; attempt authentication bypass or data extraction."
+        },
+        {
+          "id": "WSTG-INPV-10",
+          "name": "Test for IMAP/SMTP Injection",
+          "description": "Inject mail headers and commands via webmail interfaces to relay spam, access mailboxes, or enumerate users."
+        },
+        {
+          "id": "WSTG-INPV-11",
+          "name": "Test for Code Injection",
+          "description": "Test inputs used in dynamic code execution (eval, exec) for arbitrary code injection."
+        },
+        {
+          "id": "WSTG-INPV-12",
+          "name": "Test for Command Injection",
+          "description": "Inject OS commands via inputs passed to shell functions; test for blind injection via time delays or OOB."
+        },
+        {
+          "id": "WSTG-INPV-13",
+          "name": "Test for Format String Injection",
+          "description": "Test inputs used in printf-style format functions for format string vulnerabilities."
+        },
+        {
+          "id": "WSTG-INPV-14",
+          "name": "Test for Incubated Vulnerability",
+          "description": "Test for vulnerabilities that are triggered asynchronously or by a different user/process than the injector."
+        },
+        {
+          "id": "WSTG-INPV-15",
+          "name": "Test for HTTP Splitting/Smuggling",
+          "description": "Inject CRLF sequences into HTTP headers; test for request smuggling between front-end and back-end servers."
+        },
+        {
+          "id": "WSTG-INPV-16",
+          "name": "Test for HTTP Incoming Requests",
+          "description": "Monitor and analyse all incoming HTTP requests for unexpected parameters, headers, or malformed input."
+        },
+        {
+          "id": "WSTG-INPV-17",
+          "name": "Test for Host Header Injection",
+          "description": "Inject arbitrary Host headers to trigger password reset poisoning, cache poisoning, or SSRF."
+        },
+        {
+          "id": "WSTG-INPV-18",
+          "name": "Test for Server-Side Template Injection (SSTI)",
+          "description": "Inject template syntax into inputs rendered by template engines (Jinja2, Twig, Freemarker) to achieve RCE."
+        },
+        {
+          "id": "WSTG-INPV-19",
+          "name": "Test for Server-Side Request Forgery (SSRF)",
+          "description": "Test inputs that trigger server-side HTTP requests for SSRF to internal services or cloud metadata endpoints."
+        }
+      ]
+    },
+    {
+      "key": "error",
+      "id": "WSTG-ERRH",
+      "name": "Error Handling",
+      "folder": "08-Testing_for_Error_Handling",
+      "tests": [
+        {
+          "id": "WSTG-ERRH-01",
+          "name": "Test for Improper Error Handling",
+          "description": "Trigger application errors and verify responses don't leak stack traces, internal paths, or DB structure."
+        },
+        {
+          "id": "WSTG-ERRH-02",
+          "name": "Test for Stack Traces",
+          "description": "Confirm production error pages show generic messages and that verbose errors are only in development mode."
+        }
+      ]
+    },
+    {
+      "key": "crypto",
+      "id": "WSTG-CRYP",
+      "name": "Cryptography",
+      "folder": "09-Testing_for_Weak_Cryptography",
+      "tests": [
+        {
+          "id": "WSTG-CRYP-01",
+          "name": "Test Weak Transport Layer Security",
+          "description": "Scan for weak TLS versions (SSLv3, TLS 1.0/1.1), weak cipher suites, expired certs, and missing features."
+        },
+        {
+          "id": "WSTG-CRYP-02",
+          "name": "Test for Padding Oracle",
+          "description": "Test CBC-mode encrypted tokens for padding oracle vulnerabilities enabling decryption or forgery."
+        },
+        {
+          "id": "WSTG-CRYP-03",
+          "name": "Test for Sensitive Data Over Unencrypted Channel",
+          "description": "Verify no sensitive data (credentials, PII, tokens) is transmitted over unencrypted HTTP connections."
+        },
+        {
+          "id": "WSTG-CRYP-04",
+          "name": "Test for Weak Encryption",
+          "description": "Identify use of weak or broken algorithms (MD5, SHA1, DES, ECB mode) for sensitive data storage or transit."
+        }
+      ]
+    },
+    {
+      "key": "business",
+      "id": "WSTG-BUSL",
+      "name": "Business Logic",
+      "folder": "10-Business_Logic_Testing",
+      "tests": [
+        {
+          "id": "WSTG-BUSL-01",
+          "name": "Test Business Logic Data Validation",
+          "description": "Verify the application enforces business rules on all input, not just UI-level controls."
+        },
+        {
+          "id": "WSTG-BUSL-02",
+          "name": "Test Ability to Forge Requests",
+          "description": "Replay or modify legitimate requests to perform unintended actions (e.g., negative prices, skipped steps)."
+        },
+        {
+          "id": "WSTG-BUSL-03",
+          "name": "Test Integrity Checks",
+          "description": "Verify the application detects and rejects tampered data; check signatures, checksums, and MAC validation."
+        },
+        {
+          "id": "WSTG-BUSL-04",
+          "name": "Test for Process Timing",
+          "description": "Test for race conditions and time-of-check/time-of-use (TOCTOU) vulnerabilities in critical operations."
+        },
+        {
+          "id": "WSTG-BUSL-05",
+          "name": "Test Function Use Limits",
+          "description": "Verify rate limits and usage caps are enforced server-side for sensitive functions (OTP, voucher codes)."
+        },
+        {
+          "id": "WSTG-BUSL-06",
+          "name": "Test for Workflow Circumvention",
+          "description": "Attempt to skip required workflow steps (payment, verification) by directly accessing later-stage URLs."
+        },
+        {
+          "id": "WSTG-BUSL-07",
+          "name": "Test Defences Against Application Misuse",
+          "description": "Attempt to abuse legitimate features in unintended ways; verify anomaly detection or rate limiting exists."
+        },
+        {
+          "id": "WSTG-BUSL-08",
+          "name": "Test Upload of Unexpected File Types",
+          "description": "Upload non-whitelisted file types to upload functions; check for client-side-only MIME type validation."
+        },
+        {
+          "id": "WSTG-BUSL-09",
+          "name": "Test Upload of Malicious Files",
+          "description": "Upload web shells, polyglots, and malicious files; check if uploaded files are executed by the server."
+        }
+      ]
+    },
+    {
+      "key": "client",
+      "id": "WSTG-CLNT",
+      "name": "Client-Side",
+      "folder": "11-Client-side_Testing",
+      "tests": [
+        {
+          "id": "WSTG-CLNT-01",
+          "name": "Test for DOM-Based XSS",
+          "description": "Identify sinks that write attacker-controlled data to the DOM (innerHTML, document.write, eval) without sanitisation."
+        },
+        {
+          "id": "WSTG-CLNT-02",
+          "name": "Test for JavaScript Execution",
+          "description": "Test inputs that flow into JavaScript execution contexts for injection via prototype pollution or eval sinks."
+        },
+        {
+          "id": "WSTG-CLNT-03",
+          "name": "Test for HTML Injection",
+          "description": "Inject HTML markup into inputs reflected in responses; test for phishing and UI redressing potential."
+        },
+        {
+          "id": "WSTG-CLNT-04",
+          "name": "Test for Client-Side URL Redirect",
+          "description": "Test open redirect vulnerabilities in client-side redirect parameters for phishing and token theft."
+        },
+        {
+          "id": "WSTG-CLNT-05",
+          "name": "Test for CSS Injection",
+          "description": "Inject CSS into inputs rendered in style contexts; check for data exfiltration via CSS selectors."
+        },
+        {
+          "id": "WSTG-CLNT-06",
+          "name": "Test for Client-Side Resource Manipulation",
+          "description": "Test inputs controlling resource URLs (scripts, stylesheets) for manipulation to load attacker content."
+        },
+        {
+          "id": "WSTG-CLNT-07",
+          "name": "Test Cross-Origin Resource Sharing (CORS)",
+          "description": "Verify CORS policy does not allow arbitrary origins to read sensitive responses; check ACAO: * on credentialed requests."
+        },
+        {
+          "id": "WSTG-CLNT-08",
+          "name": "Test for Clickjacking",
+          "description": "Verify X-Frame-Options or CSP frame-ancestors prevents the application from being embedded in iframes."
+        },
+        {
+          "id": "WSTG-CLNT-09",
+          "name": "Test WebSockets",
+          "description": "Test WebSocket connections for lack of authentication, missing origin validation, and injection vulnerabilities."
+        },
+        {
+          "id": "WSTG-CLNT-10",
+          "name": "Test Web Messaging",
+          "description": "Review postMessage handlers for missing origin validation allowing cross-origin message injection."
+        },
+        {
+          "id": "WSTG-CLNT-11",
+          "name": "Test Browser Storage",
+          "description": "Review localStorage/sessionStorage/IndexedDB for sensitive data stored client-side without encryption."
+        },
+        {
+          "id": "WSTG-CLNT-12",
+          "name": "Test for Cross-Site Script Inclusion (XSSI)",
+          "description": "Test JSON endpoints for data leakage when included as scripts in attacker-controlled pages."
+        }
+      ]
+    },
+    {
+      "key": "api",
+      "id": "WSTG-APIT",
+      "name": "API Testing",
+      "folder": "12-API_Testing",
+      "tests": [
+        {
+          "id": "WSTG-APIT-01",
+          "name": "Test GraphQL",
+          "description": "Test GraphQL endpoints for introspection exposure, query depth attacks, batching abuse, and injection."
+        },
+        {
+          "id": "WSTG-APIT-02",
+          "name": "Test REST",
+          "description": "Test REST APIs for broken object-level auth, mass assignment, improper HTTP method handling, and injection."
+        },
+        {
+          "id": "WSTG-APIT-03",
+          "name": "Test SOAP/XML",
+          "description": "Test SOAP services for XXE, WSDL enumeration, parameter tampering, and authentication weaknesses."
+        }
+      ]
+    }
+  ]
+}

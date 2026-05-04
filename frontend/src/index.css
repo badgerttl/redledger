@@ -239,6 +239,37 @@
   .markdown-body code { @apply bg-input px-1.5 py-0.5 rounded text-sm text-accent font-mono; }
   .markdown-body pre { @apply bg-input p-4 rounded-xl overflow-x-auto mb-4 border border-border; }
   .markdown-body pre code { @apply bg-transparent p-0; }
+  .markdown-body pre .token.comment,
+  .markdown-body pre .token.prolog,
+  .markdown-body pre .token.doctype,
+  .markdown-body pre .token.cdata { color: #7c8493; }
+  .markdown-body pre .token.punctuation { color: #a1a1aa; }
+  .markdown-body pre .token.property,
+  .markdown-body pre .token.tag,
+  .markdown-body pre .token.constant,
+  .markdown-body pre .token.symbol,
+  .markdown-body pre .token.deleted { color: #f87171; }
+  .markdown-body pre .token.boolean,
+  .markdown-body pre .token.number { color: #fb923c; }
+  .markdown-body pre .token.selector,
+  .markdown-body pre .token.attr-name,
+  .markdown-body pre .token.string,
+  .markdown-body pre .token.char,
+  .markdown-body pre .token.builtin,
+  .markdown-body pre .token.inserted { color: #34d399; }
+  .markdown-body pre .token.operator,
+  .markdown-body pre .token.entity,
+  .markdown-body pre .token.url,
+  .markdown-body pre .language-css .token.string,
+  .markdown-body pre .style .token.string { color: #67e8f9; }
+  .markdown-body pre .token.atrule,
+  .markdown-body pre .token.attr-value,
+  .markdown-body pre .token.keyword { color: #60a5fa; }
+  .markdown-body pre .token.function,
+  .markdown-body pre .token.class-name { color: #facc15; }
+  .markdown-body pre .token.regex,
+  .markdown-body pre .token.important,
+  .markdown-body pre .token.variable { color: #c084fc; }
   .markdown-body table { @apply w-full border-collapse mb-4; }
   .markdown-body th { @apply text-left px-3 py-2 border-b border-border text-text-primary font-medium text-sm; }
   .markdown-body td { @apply px-3 py-2 border-b border-border text-text-secondary text-sm; }
@@ -246,6 +277,16 @@
   .markdown-body a { @apply text-accent hover:text-accent-hover underline; }
   .markdown-body hr { @apply border-border my-6; }
   .markdown-body blockquote { @apply border-l-2 border-accent pl-4 italic text-text-secondary my-3; }
+
+  ::highlight(guide-search) {
+    background-color: rgb(253 224 71 / 0.72);
+    color: #18181b;
+  }
+
+  ::highlight(guide-search-active) {
+    background-color: #3b82f6;
+    color: #ffffff;
+  }
 
   /* Tiptap WYSIWYG editor — reuse markdown-body styles */
   .tiptap-editor .ProseMirror { @apply focus:outline-none; }

@@ -3,10 +3,25 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../api/client';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
-import { ChevronDown, ChevronRight, CheckSquare, Ban, Shield, BookOpen } from 'lucide-react';
+import { ChevronDown, ChevronRight, CheckSquare, Ban, Shield, BookOpen, RefreshCw } from 'lucide-react';
 
 const isApplicable = (i) => !i.is_na;
 const WSTG_PREFIX = 'WSTG - ';
+const PHASE_GUIDE_SLUGS = {
+  Reconnaissance: 'reconnaissance',
+  'Scanning and Enumeration': 'scanning_and_enumeration',
+  Exploitation: 'exploitation',
+  'Post-Exploitation': 'post_exploitation',
+  Reporting: 'reporting',
+};
+
+function guideSectionSlug(value) {
+  return String(value || '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
 
 function ProgressBar({ checked, total }) {
   const pct = total > 0 ? Math.round((checked / total) * 100) : 0;
@@ -30,35 +45,52 @@ function PhaseGroup({ phase, items, onPatch, isWstg }) {
   const appl = items.filter(isApplicable);
   const phaseChecked = appl.filter((i) => i.is_checked).length;
   const phaseApplicable = appl.length;
+  const guideSlug = PHASE_GUIDE_SLUGS[phase];
 
   return (
     <div className={clsx('card', isWstg && 'border-l-2 border-l-accent/30')}>
-      <button
-        type="button"
-        className="w-full flex items-center justify-between"
-        onClick={() => setCollapsed((c) => !c)}
-      >
-        <div className="flex items-center gap-3">
-          {collapsed ? (
-            <ChevronRight className="w-4 h-4 text-text-muted" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-text-muted" />
-          )}
-          <span className="text-sm font-medium text-text-primary">{phase}</span>
-          <span className="text-xs text-text-muted">
-            {phaseChecked}/{phaseApplicable}
-            {items.length > phaseApplicable && (
-              <span className="text-text-muted/80"> · {items.length - phaseApplicable} N/A</span>
+      <div className="w-full flex items-center justify-between gap-3">
+        <button
+          type="button"
+          className="min-w-0 flex flex-1 items-center gap-3 text-left"
+          onClick={() => setCollapsed((c) => !c)}
+        >
+          <span className="shrink-0">
+            {collapsed ? (
+              <ChevronRight className="w-4 h-4 text-text-muted" />
+            ) : (
+              <ChevronDown className="w-4 h-4 text-text-muted" />
             )}
           </span>
+          <span className="min-w-0 flex items-center gap-2 flex-wrap">
+            <span className="text-sm font-medium text-text-primary">{phase}</span>
+            <span className="text-xs text-text-muted">
+              {phaseChecked}/{phaseApplicable}
+              {items.length > phaseApplicable && (
+                <span className="text-text-muted/80"> · {items.length - phaseApplicable} N/A</span>
+              )}
+            </span>
+          </span>
+        </button>
+        <div className="flex shrink-0 items-center gap-3">
+          {guideSlug && (
+            <button
+              type="button"
+              title={`View ${phase} guide`}
+              onClick={() => navigate(`/guides?tab=methodology&phase=${guideSlug}`)}
+              className="text-text-muted hover:text-accent transition-colors"
+            >
+              <BookOpen className="w-4 h-4" />
+            </button>
+          )}
+          <div className="w-20 h-1.5 bg-input rounded-full overflow-hidden">
+            <div
+              className="h-full bg-accent rounded-full transition-all duration-300"
+              style={{ width: phaseApplicable > 0 ? `${(phaseChecked / phaseApplicable) * 100}%` : '0%' }}
+            />
+          </div>
         </div>
-        <div className="w-20 h-1.5 bg-input rounded-full overflow-hidden">
-          <div
-            className="h-full bg-accent rounded-full transition-all duration-300"
-            style={{ width: phaseApplicable > 0 ? `${(phaseChecked / phaseApplicable) * 100}%` : '0%' }}
-          />
-        </div>
-      </button>
+      </div>
 
       {!collapsed && (
         <div className="mt-3 pt-3 border-t border-border space-y-1">
@@ -110,6 +142,16 @@ function PhaseGroup({ phase, items, onPatch, isWstg }) {
                       </button>
                     ) : null;
                   })()}
+                  {!isWstg && guideSlug && (
+                    <button
+                      type="button"
+                      title={`View guide section for ${item.label}`}
+                      onClick={() => navigate(`/guides?tab=methodology&phase=${guideSlug}&section=${guideSectionSlug(item.label)}`)}
+                      className="shrink-0 text-text-muted hover:text-accent transition-colors"
+                    >
+                      <BookOpen className="w-3.5 h-3.5" />
+                    </button>
+                  )}
                 </div>
                 {item.description && (
                   <p
@@ -139,6 +181,7 @@ export default function Checklists() {
   const [checklists, setChecklists] = useState({});
   const [refresh, setRefresh] = useState(0);
   const [loadingWstg, setLoadingWstg] = useState(false);
+  const [syncingMethodology, setSyncingMethodology] = useState(false);
   const reload = () => setRefresh((r) => r + 1);
 
   useEffect(() => {
@@ -176,6 +219,27 @@ export default function Checklists() {
     }
   };
 
+  const handleSyncMethodology = async () => {
+    setSyncingMethodology(true);
+    try {
+      const { data } = await api.post(`/engagements/${id}/checklists/methodology/sync`);
+      if (data.added > 0 || data.updated > 0) {
+        const parts = [];
+        if (data.added > 0) parts.push(`added ${data.added}`);
+        if (data.updated > 0) parts.push(`updated ${data.updated}`);
+        toast.success(`Methodology checklist ${parts.join(', ')}`);
+        setActiveTab('methodology');
+        reload();
+      } else {
+        toast('Methodology checklist already up to date', { icon: 'ℹ️' });
+      }
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSyncingMethodology(false);
+    }
+  };
+
   const allPhases = Object.keys(checklists);
   const wstgPhases = allPhases.filter((p) => p.startsWith(WSTG_PREFIX));
   const methodPhases = allPhases.filter((p) => !p.startsWith(WSTG_PREFIX));
@@ -195,6 +259,14 @@ export default function Checklists() {
           <CheckSquare className="w-5 h-5" /> Methodology Checklists
         </h1>
         <div className="flex items-center gap-3">
+          <button
+            onClick={handleSyncMethodology}
+            disabled={syncingMethodology}
+            className="btn-secondary flex items-center gap-2 text-sm"
+          >
+            <RefreshCw className={clsx('w-4 h-4', syncingMethodology && 'animate-spin')} />
+            {syncingMethodology ? 'Updating…' : 'Update Methodology'}
+          </button>
           {!hasWstg && (
             <button
               onClick={handleLoadWstg}

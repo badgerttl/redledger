@@ -295,6 +295,9 @@ export default function Assets() {
   const [refresh, setRefresh] = useState(0);
   const reload = () => setRefresh(r => r + 1);
 
+  const [expandedIds, setExpandedIds] = useState(new Set());
+  const toggleExpanded = (aid) => setExpandedIds(prev => { const n = new Set(prev); n.has(aid) ? n.delete(aid) : n.add(aid); return n; });
+
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkType, setBulkType] = useState('');
   const [bulkOs, setBulkOs] = useState('');
@@ -500,6 +503,17 @@ export default function Assets() {
     return sorted;
   }, [typeFilteredAssets, assetSearch, sortKey, sortDir]);
 
+  const isTreeMode = filter === 'all' && !assetSearch.trim() && tagFilter.size === 0;
+
+  const assetIdSet = useMemo(() => new Set(assets.map(a => a.id)), [assets]);
+
+  const rootAssets = useMemo(() => {
+    if (!isTreeMode) return [];
+    return [...assets]
+      .filter(a => !a.parent_asset_id || !assetIdSet.has(a.parent_asset_id))
+      .sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { sensitivity: 'base' }));
+  }, [assets, assetIdSet, isTreeMode]);
+
   const tagsInView = useMemo(() => {
     const map = new Map();
     for (const a of typeFilteredAssets) {
@@ -550,6 +564,80 @@ export default function Assets() {
     }
     return groups;
   }, [assets, portSort, portSearch]);
+
+  const renderAssetRow = (a, depth, hasChildren) => {
+    const isExpanded = expandedIds.has(a.id);
+    return (
+      <tr
+        key={a.id}
+        className={`table-row cursor-pointer ${selectedIds.has(a.id) ? 'bg-accent/5' : ''}`}
+        onClick={() => navigate(`/e/${id}/assets/${a.id}`, { state: { from: `/e/${id}/assets`, fromLabel: 'Assets' } })}
+      >
+        <td className="px-4 py-3" onClick={(e) => { e.stopPropagation(); toggleSelect(a.id); }}>
+          {selectedIds.has(a.id)
+            ? <CheckSquare className="w-4 h-4 text-accent" />
+            : <Square className="w-4 h-4 text-text-muted hover:text-text-primary transition-colors" />}
+        </td>
+        <td className="px-4 py-3 text-sm font-medium text-text-primary">
+          <div className="flex items-center gap-1.5" style={{ paddingLeft: `${depth * 20}px` }}>
+            {hasChildren ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); toggleExpanded(a.id); }}
+                className="text-text-muted hover:text-accent transition-colors shrink-0 p-0.5 rounded hover:bg-accent/10"
+              >
+                {isExpanded
+                  ? <ChevronDown className="w-3.5 h-3.5" />
+                  : <ChevronRight className="w-3.5 h-3.5" />}
+              </button>
+            ) : (
+              depth > 0 && <span className="w-4 shrink-0 text-border text-xs select-none">└</span>
+            )}
+            <AssetIcon type={a.asset_type} className="w-4 h-4 text-text-muted shrink-0" />
+            <span>{a.name}</span>
+            {a.target && (
+              <button
+                onClick={(e) => copyTarget(e, a.target)}
+                className="text-text-muted hover:text-accent transition-colors p-0.5 rounded hover:bg-accent/10"
+                title="Copy target"
+              >
+                <Copy className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+        </td>
+        <td className="px-4 py-3 text-sm text-text-secondary">{assetTypeLabel(a.asset_type)}</td>
+        <td className="px-4 py-3 text-sm text-text-secondary font-mono">{a.target}</td>
+        <td className="px-4 py-3 text-sm text-text-secondary">{a.os || '—'}</td>
+        <td className="px-4 py-3">
+          <div className="flex gap-1 flex-wrap">{a.tags?.map((t) => <TagBadge key={t.id} tag={t} />)}</div>
+        </td>
+        <td className="px-4 py-3">
+          <button
+            onClick={(e) => { e.stopPropagation(); setDeleteTarget(a.id); }}
+            className="text-text-muted hover:text-red-400 transition-colors"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </td>
+      </tr>
+    );
+  };
+
+  const renderTreeRows = (items, allAssets, depth) => {
+    return items.flatMap(a => {
+      const children = allAssets
+        .filter(c => c.parent_asset_id === a.id)
+        .sort((x, y) => (x.name || '').localeCompare(y.name || '', undefined, { sensitivity: 'base' }));
+      const hasChildren = children.length > 0;
+      const isExpanded = expandedIds.has(a.id);
+      const rows = [renderAssetRow(a, depth, hasChildren)];
+      if (hasChildren && isExpanded) {
+        rows.push(...renderTreeRows(children, allAssets, depth + 1));
+      }
+      return rows;
+    });
+  };
 
   return (
     <div>
@@ -940,58 +1028,22 @@ export default function Assets() {
                 </tr>
               </thead>
               <tbody>
-                {assetsForTable.map((a) => (
-                  <tr key={a.id} className={`table-row cursor-pointer ${selectedIds.has(a.id) ? 'bg-accent/5' : ''}`} onClick={() => navigate(`/e/${id}/assets/${a.id}`, { state: { from: `/e/${id}/assets`, fromLabel: 'Assets' } })}>
-                    <td className="px-4 py-3" onClick={(e) => { e.stopPropagation(); toggleSelect(a.id); }}>
-                      {selectedIds.has(a.id)
-                        ? <CheckSquare className="w-4 h-4 text-accent" />
-                        : <Square className="w-4 h-4 text-text-muted hover:text-text-primary transition-colors" />}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium text-text-primary flex items-center gap-2">
-                      <AssetIcon type={a.asset_type} className="w-4 h-4 text-text-muted" />
-                      {a.name}
-                      {a.target && (
-                        <button
-                          onClick={(e) => copyTarget(e, a.target)}
-                          className="text-text-muted hover:text-accent transition-colors p-0.5 rounded hover:bg-accent/10"
-                          title="Copy target"
-                        >
-                          <Copy className="w-3.5 h-3.5" />
-                        </button>
-                      )}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-text-secondary">{assetTypeLabel(a.asset_type)}</td>
-                    <td className="px-4 py-3 text-sm text-text-secondary font-mono">{a.target}</td>
-                    <td className="px-4 py-3 text-sm text-text-secondary">{a.os || '—'}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-1 flex-wrap">{a.tags?.map((t) => <TagBadge key={t.id} tag={t} />)}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setDeleteTarget(a.id);
-                        }}
-                        className="text-text-muted hover:text-red-400 transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {typeFilteredAssets.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-text-muted">
-                      No assets yet
-                    </td>
-                  </tr>
-                )}
-                {typeFilteredAssets.length > 0 && assetsForTable.length === 0 && (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-sm text-text-muted">
-                      No assets match this filter. Try another name or address.
-                    </td>
-                  </tr>
+                {isTreeMode ? (
+                  rootAssets.length === 0 ? (
+                    <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-text-muted">No assets yet</td></tr>
+                  ) : (
+                    renderTreeRows(rootAssets, assets, 0)
+                  )
+                ) : (
+                  <>
+                    {assetsForTable.map((a) => renderAssetRow(a, 0, false))}
+                    {typeFilteredAssets.length === 0 && (
+                      <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-text-muted">No assets yet</td></tr>
+                    )}
+                    {typeFilteredAssets.length > 0 && assetsForTable.length === 0 && (
+                      <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-text-muted">No assets match this filter. Try another name or address.</td></tr>
+                    )}
+                  </>
                 )}
               </tbody>
             </table>

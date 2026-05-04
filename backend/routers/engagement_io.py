@@ -175,6 +175,7 @@ def export_engagement(engagement_id: int, db: Session = Depends(get_db)):
         "assets": [
             {
                 "id": a.id,
+                "parent_old_id": a.parent_asset_id,
                 "name": a.name,
                 "asset_type": a.asset_type,
                 "target": a.target,
@@ -369,6 +370,7 @@ def _do_import(db: Session, manifest: dict, tmpdir: Path) -> dict:
 
     # ── 3. Assets (old_id → new_id map) ───────────────────────────────
     asset_id_map: dict[int, int] = {}
+    asset_parent_map: dict[int, int] = {}  # new_asset_id → old_parent_id
     for a_data in manifest.get("assets", []):
         old_id = a_data["id"]
         asset = Asset(
@@ -378,10 +380,14 @@ def _do_import(db: Session, manifest: dict, tmpdir: Path) -> dict:
             target=a_data.get("target", ""),
             os=a_data.get("os", ""),
             ports_summary=a_data.get("ports_summary", ""),
+            # parent_asset_id wired in second pass below
         )
         db.add(asset)
         db.flush()
         asset_id_map[old_id] = asset.id
+        old_parent = a_data.get("parent_old_id")
+        if old_parent is not None:
+            asset_parent_map[asset.id] = old_parent
 
         # Asset tags
         for td in a_data.get("tags", []):
@@ -401,6 +407,13 @@ def _do_import(db: Session, manifest: dict, tmpdir: Path) -> dict:
         for sd in a_data.get("screenshots", []):
             _import_screenshot(db, sd, tmpdir, asset_id=asset.id, finding_id=None)
 
+    db.flush()
+
+    # Wire up parent_asset_id now that all assets have new IDs
+    for new_id, old_parent_id in asset_parent_map.items():
+        new_parent_id = asset_id_map.get(old_parent_id)
+        if new_parent_id:
+            db.query(Asset).filter(Asset.id == new_id).update({"parent_asset_id": new_parent_id})
     db.flush()
 
     # ── 4. Tool outputs (old_id → new_id map) ─────────────────────────

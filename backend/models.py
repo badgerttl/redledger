@@ -2,7 +2,7 @@ import datetime
 from sqlalchemy import (
     Column, Integer, String, Text, Float, Boolean, DateTime, ForeignKey, Table,
 )
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from backend.database import Base
 
 # ── Association tables ────────────────────────────────────────────────
@@ -113,6 +113,7 @@ class Asset(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     engagement_id = Column(Integer, ForeignKey("engagements.id", ondelete="CASCADE"), nullable=False)
+    parent_asset_id = Column(Integer, ForeignKey("assets.id", ondelete="SET NULL"), nullable=True)
     name = Column(String(255), nullable=False)
     asset_type = Column(String(20), nullable=False)  # host, web_page, api_endpoint, mobile_app, cloud_resource
     target = Column(String(500), default="")
@@ -122,6 +123,7 @@ class Asset(Base):
     updated_at = Column(DateTime, default=_utcnow, onupdate=_utcnow)
 
     engagement = relationship("Engagement", back_populates="assets")
+    children = relationship("Asset", backref=backref("parent", remote_side=[id]), cascade="all")
     notes = relationship("Note", back_populates="asset", cascade="all, delete-orphan")
     screenshots = relationship("Screenshot", back_populates="asset", cascade="all, delete-orphan",
                                foreign_keys="Screenshot.asset_id")
